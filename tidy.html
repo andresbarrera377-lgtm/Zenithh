@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TIDY — Your Team's Command Center</title>
+<meta name="description" content="The modern way to manage team tasks & projects."/>
+<meta name="theme-color" content="#e9e7e2"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#e9e7e2; --bg2:#efede9; --ink:#3a3440; --muted:#8b8691; --faint:rgba(58,52,64,.32);
+    --purple:#a75bc4; --purple2:#8b5cf6;
+    --sans:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+  ::selection{background:var(--purple);color:#fff}
+  a{color:inherit;text-decoration:none}
+  .label{font-family:var(--mono);font-size:.6rem;letter-spacing:.18em;text-transform:uppercase}
+
+  /* ---------- nav ---------- */
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:1.15rem 2.6vw;background:linear-gradient(to bottom,rgba(233,231,226,.92),rgba(233,231,226,0));backdrop-filter:blur(2px)}
+  .brand{display:flex;align-items:center;gap:.9rem}
+  .brand .logo{font-weight:700;font-size:1.15rem;letter-spacing:.06em}
+  .brand .tag{font-family:var(--mono);font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);line-height:1.5}
+  nav .center{display:flex;gap:2.4rem}
+  nav .center a,.right a{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;opacity:.8;transition:opacity .25s}
+  nav a:hover{opacity:1}
+  nav .right{display:flex;justify-content:flex-end;gap:2rem;align-items:center}
+  @media(max-width:820px){nav .center{display:none}.brand .tag{display:none}}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;min-height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  #deco,#ribbon{position:absolute;inset:0;width:100%;height:100%}
+  .hero-top{position:relative;z-index:2;display:flex;justify-content:space-between;gap:4vw;padding:16vh 2.6vw 0;pointer-events:none}
+  .hero-top .idx{font-family:var(--mono);font-size:.58rem;letter-spacing:.2em;color:var(--muted);position:absolute;top:11.5vh;left:2.6vw}
+  h1{font-weight:600;font-size:clamp(1.25rem,2.05vw,1.9rem);line-height:1.32;letter-spacing:.045em;text-transform:uppercase;max-width:24ch}
+  h1 .row{display:block;overflow:hidden}
+  h1 .row span{display:inline-block;transform:translateY(110%);animation:rise 1s cubic-bezier(.19,1,.22,1) forwards;animation-delay:var(--d,0s)}
+  @keyframes rise{to{transform:translateY(0)}}
+  .badge{margin-top:2.2rem;display:inline-flex;align-items:center;gap:.5rem;font-family:var(--mono);font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  .badge i{font-style:normal;color:var(--purple)}
+  .hero-top .blurb{max-width:26ch;font-size:.78rem;line-height:1.7;color:var(--muted);text-align:left;padding-top:.4rem}
+  @media(max-width:680px){.hero-top{flex-direction:column;gap:1.6rem}}
+
+  .hero-bottom{position:relative;z-index:2;margin-top:auto;padding:0 2.6vw 5vh;display:grid;grid-template-columns:1fr auto 1fr;align-items:end}
+  .discover{display:flex;align-items:center;gap:.7rem;font-family:var(--mono);font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  .discover .arr{display:inline-block;animation:bob 1.6s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(5px)}}
+  .cta-mini{text-align:center}
+  .cta-mini p{font-size:.78rem;line-height:1.65;color:var(--ink);max-width:30ch;margin:0 auto 1.15rem}
+  .pill{display:inline-block;padding:.72rem 2.1rem;border-radius:999px;background:linear-gradient(100deg,#b45cc9,#8f5bd4);color:#fff;font-family:var(--mono);font-size:.56rem;letter-spacing:.22em;text-transform:uppercase;box-shadow:0 10px 26px rgba(150,80,190,.35);transition:transform .3s,box-shadow .3s}
+  .pill:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(150,80,190,.45)}
+
+  /* ---------- generic section chrome ---------- */
+  section{position:relative;padding:14vh 2.6vw}
+  .sec-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8vh}
+  .sec-head h2{font-weight:600;font-size:clamp(1.15rem,1.9vw,1.7rem);letter-spacing:.05em;text-transform:uppercase;max-width:26ch;line-height:1.35}
+  .sec-head .label{color:var(--muted)}
+  .reveal{opacity:0;transform:translateY(40px);transition:opacity 1s cubic-bezier(.19,1,.22,1),transform 1s cubic-bezier(.19,1,.22,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  /* ---------- 3D board ---------- */
+  .stage{perspective:1600px;display:flex;justify-content:center;padding:6vh 0 10vh}
+  .board{position:relative;width:min(760px,86vw);aspect-ratio:16/10.5;transform:rotateX(52deg) rotateZ(-11deg);transform-style:preserve-3d;border-radius:22px;background:linear-gradient(145deg,#f2f0ec,#e2dfda);box-shadow:28px 60px 90px rgba(58,52,64,.28), inset 0 0 0 1px rgba(255,255,255,.6)}
+  .board .rail{position:absolute;right:4.5%;top:12%;bottom:12%;width:7%;border-radius:12px;background:rgba(58,52,64,.05);display:flex;flex-direction:column;align-items:center;justify-content:space-evenly}
+  .board .rail i{width:46%;aspect-ratio:1;border-radius:50%;background:rgba(58,52,64,.14)}
+  .board .slot{position:absolute;border-radius:10px;background:rgba(58,52,64,.055)}
+  .fcard{position:absolute;width:17.5%;aspect-ratio:.68;border-radius:10px;transform:translateZ(var(--z,60px));box-shadow:-14px 26px 34px rgba(58,52,64,.35);animation:hover 5s ease-in-out infinite;animation-delay:var(--ad,0s)}
+  @keyframes hover{50%{transform:translateZ(calc(var(--z,60px) + 18px))}}
+  .fcard::before{content:"";position:absolute;inset:9% 10% auto;height:8%;border-radius:99px;background:rgba(255,255,255,.55)}
+  .fcard::after{content:"";position:absolute;inset:auto 10% 12%;height:26%;border-radius:8px;background:rgba(255,255,255,.22)}
+  .c-pink{background:linear-gradient(160deg,#e58ec1,#b5559b)}
+  .c-purple{background:linear-gradient(160deg,#a878d8,#7b4fb0)}
+  .c-plum{background:linear-gradient(160deg,#8d5a92,#5d3364)}
+  .c-blue{background:linear-gradient(160deg,#8fb0d8,#5f7fb5)}
+  .c-slate{background:linear-gradient(160deg,#b8bfd6,#8890b0)}
+
+  /* ---------- terrain ---------- */
+  .terrain-wrap{position:relative}
+  #terrainCv{width:100%;height:56vh;display:block}
+  .dim{position:absolute;font-family:var(--mono);font-size:.55rem;letter-spacing:.18em;color:var(--muted)}
+  .dim.l{left:2%;top:50%;transform:rotate(-90deg)}
+  .dim.b{bottom:4%;left:50%;transform:translateX(-50%)}
+
+  /* ---------- features row ---------- */
+  .feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;background:rgba(58,52,64,.12);border:1px solid rgba(58,52,64,.12)}
+  .feat{background:var(--bg);padding:2.4rem 1.6rem}
+  .feat .n{font-family:var(--mono);font-size:.56rem;color:var(--muted);letter-spacing:.2em}
+  .feat h3{margin:1.4rem 0 .7rem;font-size:.85rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+  .feat p{font-size:.76rem;line-height:1.7;color:var(--muted)}
+
+  /* ---------- footer ---------- */
+  .final{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .final h2{font-weight:600;font-size:clamp(1.3rem,2.4vw,2.1rem);letter-spacing:.05em;text-transform:uppercase;max-width:22ch;line-height:1.4;margin-bottom:2.4rem}
+  footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:2.2rem 2.6vw;border-top:1px solid rgba(58,52,64,.12);font-family:var(--mono);font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">
+    <span class="logo">TIDY</span>
+    <span class="tag">The modern way to manage<br>team tasks &amp; projects.</span>
+  </div>
+  <div class="center">
+    <a href="#board">Product</a><a href="#terrain">Method</a><a href="#features">Learn ⌄</a>
+  </div>
+  <div class="right">
+    <a href="#">Sign in</a><a href="#get-started">[ Get in touch ]</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <canvas id="deco" aria-hidden="true"></canvas>
+  <canvas id="ribbon" aria-hidden="true"></canvas>
+
+  <div class="hero-top">
+    <span class="idx">001 — 004</span>
+    <div>
+      <h1>
+        <span class="row"><span style="--d:.15s">Your team's command</span></span>
+        <span class="row"><span style="--d:.28s">center for tasks &amp;</span></span>
+        <span class="row"><span style="--d:.41s">productivity.</span></span>
+      </h1>
+      <div class="badge"><i>✦</i> V. 1.4 now available</div>
+    </div>
+    <p class="blurb">Get your team on the same page. Delegate tasks in seconds and track progress in real time.</p>
+  </div>
+
+  <div class="hero-bottom">
+    <a class="discover" href="#board"><span class="arr">↓</span> Discover more</a>
+    <div class="cta-mini">
+      <p>Are you ready to take the first step and start your journey today?</p>
+      <a class="pill" href="#get-started">Get started</a>
+    </div>
+    <div></div>
+  </div>
+</div>
+
+<section id="board">
+  <div class="sec-head reveal">
+    <h2>Tasks that organize themselves.</h2>
+    <span class="label">002 — 004</span>
+  </div>
+  <div class="stage reveal">
+    <div class="board">
+      <div class="slot" style="left:6%;top:14%;width:54%;height:20%"></div>
+      <div class="slot" style="left:6%;top:40%;width:54%;height:20%"></div>
+      <div class="slot" style="left:6%;top:66%;width:54%;height:20%"></div>
+      <div class="slot" style="left:64%;top:14%;width:20%;height:72%"></div>
+      <div class="rail"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="fcard c-slate"  style="left:10%;top:6%;  --z:55px; --ad:0s"></div>
+      <div class="fcard c-pink"   style="left:26%;top:2%;  --z:85px; --ad:.6s"></div>
+      <div class="fcard c-purple" style="left:42%;top:6%;  --z:70px; --ad:1.2s"></div>
+      <div class="fcard c-blue"   style="left:20%;top:38%; --z:60px; --ad:.3s"></div>
+      <div class="fcard c-plum"   style="left:38%;top:42%; --z:95px; --ad:.9s"></div>
+      <div class="fcard c-purple" style="left:30%;top:70%; --z:75px; --ad:1.5s"></div>
+      <div class="fcard c-pink"   style="left:48%;top:66%; --z:55px; --ad:.2s"></div>
+    </div>
+  </div>
+</section>
+
+<section id="terrain">
+  <div class="sec-head reveal">
+    <h2>Every project, mapped in real time.</h2>
+    <span class="label">003 — 004</span>
+  </div>
+  <div class="terrain-wrap reveal">
+    <canvas id="terrainCv"></canvas>
+    <span class="dim l">— 240 ACTIVE TASKS —</span>
+    <span class="dim b">|—— SPRINT 14 · SCALE 1:400 ——|</span>
+  </div>
+</section>
+
+<section id="features">
+  <div class="sec-head reveal">
+    <h2>Built for teams that ship.</h2>
+    <span class="label">004 — 004</span>
+  </div>
+  <div class="feats reveal">
+    <div class="feat"><span class="n">/01</span><h3>Delegate in seconds</h3><p>Assign anyone, anywhere. Ownership is always visible, never ambiguous.</p></div>
+    <div class="feat"><span class="n">/02</span><h3>Progress, live</h3><p>Boards update themselves as work happens. No status meetings required.</p></div>
+    <div class="feat"><span class="n">/03</span><h3>One command center</h3><p>Tasks, docs and deadlines in a single calm surface your team actually opens.</p></div>
+    <div class="feat"><span class="n">/04</span><h3>Zero friction</h3><p>Keyboard-first, instant search, offline ready. Get in, get it done, get out.</p></div>
+  </div>
+</section>
+
+<section class="final" id="get-started">
+  <h2 class="reveal in">Are you ready to take the first step and start your journey today?</h2>
+  <a class="pill" href="#">Get started</a>
+</section>
+
+<footer>
+  <span>© 2026 TIDY</span>
+  <span>Made to keep things tidy</span>
+  <span>Twitter · LinkedIn · Contact</span>
+</footer>
+
+<script>
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- background décor: scattered + marks & dots ---------- */
+(function(){
+  const cv=document.getElementById('deco'),ctx=cv.getContext('2d');
+  function draw(){
+    const W=cv.width=cv.offsetWidth*devicePixelRatio,H=cv.height=cv.offsetHeight*devicePixelRatio;
+    const rnd=(s=>()=> (s=Math.imul(48271,s)%2147483647)/2147483647)(1234);
+    ctx.strokeStyle='rgba(58,52,64,.28)';ctx.fillStyle='rgba(58,52,64,.22)';ctx.lineWidth=devicePixelRatio;
+    for(let i=0;i<46;i++){
+      const x=rnd()*W,y=H*.18+rnd()*H*.64,s=(2+rnd()*3)*devicePixelRatio;
+      if(rnd()>.45){ctx.beginPath();ctx.moveTo(x-s,y);ctx.lineTo(x+s,y);ctx.moveTo(x,y-s);ctx.lineTo(x,y+s);ctx.stroke();}
+      else{ctx.beginPath();ctx.arc(x,y,devicePixelRatio*.9,0,7);ctx.fill();}
+    }
+  }
+  draw();addEventListener('resize',draw);
+})();
+
+/* ---------- hero ribbon: twisting stack of colored cards ---------- */
+(function(){
+  const cv=document.getElementById('ribbon'),ctx=cv.getContext('2d');
+  let W,H,t=0,mx=0;
+  const resize=()=>{W=cv.width=cv.offsetWidth*devicePixelRatio;H=cv.height=cv.offsetHeight*devicePixelRatio};
+  resize();addEventListener('resize',resize);
+  addEventListener('mousemove',e=>{mx=(e.clientX/innerWidth-.5)});
+  // palette sampled from the reference: magentas, pinks, purples, steel blues, dark plum
+  const pal=[[196,74,132],[224,128,182],[152,92,184],[128,156,206],[108,168,192],[142,54,96],[210,96,152],[120,98,176]];
+  const N=170;
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const cy=H*.55;
+    for(let i=0;i<N;i++){
+      const u=i/(N-1);
+      const x=-W*.04+u*W*1.08;
+      const y=cy + Math.sin(u*Math.PI*2.1+t*.7)*H*.11 + Math.sin(u*Math.PI*4.6-t*.45)*H*.045 + mx*H*.03*Math.sin(u*Math.PI);
+      const roll=u*Math.PI*7 + t*.9 + Math.sin(u*6.3)*0.7;          // twist along ribbon
+      const slope=Math.cos(u*Math.PI*2.1+t*.7)*.5;                   // follow the wave
+      const c=Math.cos(roll),s=Math.sin(roll);
+      const cardH=H*.21*(0.28+0.72*Math.abs(c));                     // foreshorten when edge-on
+      const cardW=(W/N)*3.1;
+      const ci=Math.abs(Math.floor(u*16+Math.sin(i*2.9)*.8))%pal.length;
+      const [r,g,b]=pal[ci];
+      const light=.74+.26*c;                                          // fake lighting
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate(slope*.45);
+      ctx.transform(1,s*.22,0,1,0,0);                                 // shear = 3D tilt
+      ctx.fillStyle=`rgb(${r*light|0},${g*light|0},${b*light|0})`;
+      ctx.beginPath();ctx.roundRect(-cardW/2,-cardH/2,cardW,cardH,cardW*.16);ctx.fill();
+      ctx.fillStyle=`rgba(255,255,255,${Math.max(0,c)*.22})`;         // top sheen
+      ctx.fillRect(-cardW/2,-cardH/2,cardW,cardH*.12);
+      ctx.restore();
+    }
+    t+=.012;
+    if(!RM)requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ---------- terrain: grayscale point-cloud landscape ---------- */
+(function(){
+  const cv=document.getElementById('terrainCv'),ctx=cv.getContext('2d');
+  let W,H,t=0,running=false;
+  const resize=()=>{W=cv.width=cv.offsetWidth*devicePixelRatio;H=cv.height=cv.offsetHeight*devicePixelRatio};
+  resize();addEventListener('resize',resize);
+  const COLS=70,ROWS=34;
+  function hgt(cx,cyy,tt){
+    return Math.sin(cx*.55+tt)*Math.cos(cyy*.5-tt*.7)*1 +
+           Math.exp(-(((cx-COLS/2)/9)**2+((cyy-ROWS/2)/5)**2))*4*Math.sin(tt*.6+2);
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(let ry=0;ry<ROWS;ry++){
+      for(let cx=0;cx<COLS;cx++){
+        const u=cx/(COLS-1),v=ry/(ROWS-1);
+        // isometric-ish projection
+        const px=W*.12+u*W*.76 + (v-.5)*W*.10;
+        const h=hgt(cx,ry,t);
+        const py=H*.24+v*H*.6 - h*H*.028;
+        const a=.12+Math.max(0,h)*.10+v*.06;
+        ctx.fillStyle=`rgba(58,52,64,${Math.min(.6,a)})`;
+        ctx.beginPath();ctx.arc(px,py,devicePixelRatio*(0.8+Math.max(0,h)*.28),0,7);ctx.fill();
+      }
+    }
+    t+=.014;
+    if(running&&!RM)requestAnimationFrame(draw);
+  }
+  const io=new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting&&!running){running=true;draw();}
+    else if(!e.isIntersecting){running=false;}
+  }),{threshold:.05});
+  io.observe(cv);
+  draw();
+})();
+
+/* ---------- scroll reveals ---------- */
+(function(){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.15});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+})();
+</script>
+</body>
+</html>
