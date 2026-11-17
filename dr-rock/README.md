@@ -46,6 +46,7 @@ npm run dev                     # http://localhost:3000
 | `ANTHROPIC_API_KEY` | Sí, para analizar | Clave de la API de Anthropic (créala en [platform.claude.com](https://platform.claude.com/)). Solo se lee en el servidor y nunca llega al navegador. |
 | `DR_ROCK_MODEL` | No | Modelo de IA (por defecto `claude-opus-5-5`). |
 | `DR_ROCK_EFFORT` | No | `low`, `medium`, `high` (por defecto), `xhigh` o `max`. `medium` responde más rápido. |
+| `DR_ROCK_TIMEOUT_SECONDS`, `DR_ROCK_MAX_RETRIES` | No | Tiempo máximo por intento (por defecto 140 s) y reintentos (por defecto 1). En hostings con funciones cortas, como Netlify (60 s), usa 50 y 0. |
 | `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` | No | Límite de análisis por cliente (por defecto 12 cada 600 s). |
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | URL pública del despliegue (metadatos). |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | No | Correo de contacto que aparece en el footer de la landing. |
@@ -69,6 +70,7 @@ Sin `ANTHROPIC_API_KEY` la app funciona (biblioteca y colección), pero el anál
 La app necesita un servidor Node (la ruta `/api/analyze` protege la clave), así que **no puede alojarse en GitHub Pages**. Opciones recomendadas:
 
 - **Vercel**: importa el repositorio, elige `dr-rock` como *Root Directory*, añade `ANTHROPIC_API_KEY` en *Environment Variables* y despliega.
+- **Netlify**: `netlify.toml` ya está listo. Las funciones de Netlify cortan a los 60 s, así que configura `DR_ROCK_EFFORT=medium`, `DR_ROCK_TIMEOUT_SECONDS=50` y `DR_ROCK_MAX_RETRIES=0`, además de `ANTHROPIC_API_KEY` (con alcance *Functions*). Cualquier cambio de variables necesita un nuevo despliegue.
 - Cualquier hosting con Node 20+: `npm run build && npm start`.
 
 ## Teléfono y PC

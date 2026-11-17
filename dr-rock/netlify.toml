@@ -1,0 +1,8 @@
+# Netlify build settings for Dr.Rock (Next.js runtime is detected automatically).
+# Secrets such as ANTHROPIC_API_KEY are set in the Netlify UI, never here.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"

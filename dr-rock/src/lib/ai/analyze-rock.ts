@@ -23,8 +23,9 @@ let client: Anthropic | null = null;
 
 function getClient(): Anthropic {
   // The SDK reads ANTHROPIC_API_KEY from the server environment. The key never reaches the browser.
-  // One retry for transient failures; 140 s × 2 attempts stays within the route's 300 s limit.
-  client ??= new Anthropic({ maxRetries: 1, timeout: 140_000 });
+  // Defaults (140 s, one retry) stay within the route's 300 s limit; see config.ts for shorter hosts.
+  const { timeoutMs, maxRetries } = getAiConfig();
+  client ??= new Anthropic({ maxRetries, timeout: timeoutMs });
   return client;
 }
 
