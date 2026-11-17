@@ -36,7 +36,7 @@ export function DiscoveryCard({ discovery }: { discovery: Discovery }) {
           </div>
           <button
             type="button"
-            onClick={() => updateDiscovery(discovery.id, { favorite: !discovery.favorite })}
+            onClick={() => updateDiscovery(discovery.id, { favorite: !discovery.favorite }).catch(() => undefined)}
             className={cn(
               "relative z-20 grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors",
               discovery.favorite ? "text-ochre-400" : "text-granite-500 hover:text-chalk-50",

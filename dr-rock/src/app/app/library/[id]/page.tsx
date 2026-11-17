@@ -2,6 +2,7 @@ import { ArrowLeft, Hourglass, Lightbulb, Pickaxe, ScanLine } from "lucide-react
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { SpecimenArt } from "@/components/art/SpecimenArt";
 import { LibraryCard } from "@/components/library/LibraryCard";
 import { GeoTimeBar } from "@/components/results/GeoTimeBar";
@@ -22,7 +23,33 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: `${entry.name} · Rock Library`, description: entry.summary };
 }
 
-export default async function LibraryEntryPage({ params }: { params: Promise<{ id: string }> }) {
+export default function LibraryEntryPage({ params }: { params: Promise<{ id: string }> }) {
+  // Reading `params` inside Suspense lets client navigations show the skeleton instantly.
+  return (
+    <Suspense fallback={<EntrySkeleton />}>
+      <LibraryEntry params={params} />
+    </Suspense>
+  );
+}
+
+function EntrySkeleton() {
+  return (
+    <div className="space-y-10" aria-hidden>
+      <div className="shimmer h-5 w-32 rounded" />
+      <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
+        <div className="shimmer aspect-[4/3] rounded-[1.25rem]" />
+        <div className="space-y-4">
+          <div className="shimmer h-6 w-28 rounded-full" />
+          <div className="shimmer h-12 w-2/3 rounded" />
+          <div className="shimmer h-20 rounded" />
+          <div className="shimmer h-40 rounded-2xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function LibraryEntry({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const entry = getEntry(id);
   if (!entry) notFound();

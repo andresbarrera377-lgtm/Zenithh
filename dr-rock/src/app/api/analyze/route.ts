@@ -29,6 +29,30 @@ function errorResponse(
   return Response.json(body, { status, headers });
 }
 
+async function readBodyWithLimit(request: Request, limit: number): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (!request.body) return new Uint8Array(0);
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limit) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
 export async function POST(request: Request): Promise<Response> {
   const requestId = createId();
   const startedAt = Date.now();
@@ -56,9 +80,18 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse(413, "IMAGE_TOO_LARGE", "The image is too large. Please use a photo under 3.5 MB.");
   }
 
+  // Read the body with a hard cap: a missing or false Content-Length must not let a client
+  // stream an arbitrarily large upload into memory.
+  const body = await readBodyWithLimit(request, MAX_BODY_BYTES);
+  if (body === null) {
+    return errorResponse(413, "IMAGE_TOO_LARGE", "The image is too large. Please use a photo under 3.5 MB.");
+  }
+
   let form: FormData;
   try {
-    form = await request.formData();
+    form = await new Response(body, {
+      headers: { "content-type": request.headers.get("content-type") ?? "" },
+    }).formData();
   } catch {
     return errorResponse(400, "INVALID_REQUEST", "Expected a multipart form with an 'image' field.");
   }

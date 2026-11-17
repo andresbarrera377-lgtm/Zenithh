@@ -139,6 +139,30 @@ describe("POST /api/analyze", () => {
     expect(body).toMatchObject({ ok: false, error: { code: "INVALID_IMAGE" } });
   });
 
+  it("caps the upload size even without a Content-Length header", async () => {
+    const chunk = new Uint8Array(1024 * 1024);
+    let sent = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent >= 8) return controller.close();
+        sent++;
+        controller.enqueue(chunk);
+      },
+    });
+    const { POST } = await import("@/app/api/analyze/route");
+    const res = await POST(
+      new Request("http://localhost/api/analyze", {
+        method: "POST",
+        body: stream,
+        headers: { "content-type": "multipart/form-data; boundary=x" },
+        // @ts-expect-error `duplex` is required by undici for streaming bodies
+        duplex: "half",
+      }),
+    );
+    expect(res.status).toBe(413);
+    expect(sent).toBeLessThan(8); // stopped reading early
+  });
+
   it("rejects requests without an image", async () => {
     const { status, body } = await post(new FormData());
     expect(status).toBe(400);

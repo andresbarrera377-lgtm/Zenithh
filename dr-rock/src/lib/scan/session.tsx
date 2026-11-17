@@ -54,6 +54,18 @@ export function ScanSessionProvider({ children }: { children: ReactNode }) {
     };
   }, [imageUrl]);
 
+  // Warn before closing or reloading the tab while an analysis is running or its result is unsaved:
+  // results live in memory only until the user saves them.
+  useEffect(() => {
+    const unsaved = status === "analyzing" || (status === "done" && !savedId);
+    if (!unsaved) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [status, savedId]);
+
   const setImage = useCallback((next: ProcessedImage) => {
     abortRef.current?.abort();
     setImageState(next);
@@ -84,16 +96,23 @@ export function ScanSessionProvider({ children }: { children: ReactNode }) {
     setResult(null);
     setSavedId(null);
 
-    requestAnalysis(image.blob, context, controller.signal).then((response) => {
-      if (controller.signal.aborted) return;
-      if (response.ok) {
-        setResult({ analysis: response.analysis, meta: response.meta });
-        setStatus("done");
-      } else {
-        setError(response.error);
+    requestAnalysis(image.blob, context, controller.signal)
+      .then((response) => {
+        if (controller.signal.aborted) return;
+        if (response.ok) {
+          setResult({ analysis: response.analysis, meta: response.meta });
+          setStatus("done");
+        } else {
+          setError(response.error);
+          setStatus("error");
+        }
+      })
+      .catch(() => {
+        // Safety net: the screen must never stay on "analyzing" if something unexpected throws.
+        if (controller.signal.aborted) return;
+        setError({ code: "UNKNOWN", message: "Something went wrong during the analysis. Please try again." });
         setStatus("error");
-      }
-    });
+      });
   }, [image, context]);
 
   const cancelAnalysis = useCallback(() => {

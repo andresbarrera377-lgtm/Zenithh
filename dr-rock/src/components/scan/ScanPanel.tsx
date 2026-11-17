@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type DragEvent } from "react";
 import { useAiStatus } from "@/components/app-shell/AiStatus";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Notice, Panel } from "@/components/ui/primitives";
 import { ACCEPTED_IMAGE_INPUT, ImageProcessingError, processImageFile, type ProcessedImage } from "@/lib/image/process-image";
 import { useScanSession } from "@/lib/scan/session";
@@ -100,6 +100,33 @@ export function ScanPanel() {
         }}
       />
 
+      {session.status === "analyzing" && (
+        <Notice
+          kind="info"
+          title="Analysis in progress"
+          action={
+            <ButtonLink href="/app/analysis" size="sm">
+              View progress
+            </ButtonLink>
+          }
+        >
+          Your photo is being analyzed. You can keep exploring — the results will be waiting for you.
+        </Notice>
+      )}
+      {session.status === "done" && session.result && (
+        <Notice
+          kind="success"
+          title="Your results are ready"
+          action={
+            <ButtonLink href="/app/results" size="sm">
+              View results
+            </ButtonLink>
+          }
+        >
+          {session.result.analysis.identification.rockName}
+          {session.savedId ? " — saved to your collection." : " — not saved yet."}
+        </Notice>
+      )}
       {aiStatus === "not-configured" && (
         <Notice kind="error" title="AI analysis is not available on this server">
           The AI engine has not been configured, so rocks cannot be analyzed right now. Dr.Rock will never show an
@@ -167,10 +194,10 @@ export function ScanPanel() {
               size="xl"
               className="w-full"
               onClick={analyze}
-              disabled={aiStatus === "not-configured" || aiStatus === "offline"}
+              disabled={aiStatus === "not-configured" || aiStatus === "offline" || session.status === "analyzing"}
               icon={<Microscope className="h-5 w-5" />}
             >
-              Analyze rock
+              {session.status === "analyzing" ? "Analyzing…" : session.status === "done" ? "Analyze again" : "Analyze rock"}
             </Button>
           </div>
         </>

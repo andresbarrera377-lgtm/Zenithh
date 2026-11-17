@@ -19,7 +19,8 @@ export function getDiscoveryRepository(): DiscoveryRepository {
 
 let version = 0;
 const listeners = new Set<() => void>();
-const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("dr-rock-collection") : null;
+const channel =
+  typeof window !== "undefined" && typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("dr-rock-collection") : null;
 
 function emit(broadcast = true) {
   version++;
@@ -100,7 +101,7 @@ export function useDiscovery(id: string | null): AsyncState<Discovery | null> {
     };
   }, [id, v]);
 
-  return state;
+  return id ? state : { data: null, loading: false, error: null };
 }
 
 /** Creates an object URL for a Blob and revokes it when the Blob changes or the component unmounts. */

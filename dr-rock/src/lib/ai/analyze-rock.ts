@@ -23,7 +23,8 @@ let client: Anthropic | null = null;
 
 function getClient(): Anthropic {
   // The SDK reads ANTHROPIC_API_KEY from the server environment. The key never reaches the browser.
-  client ??= new Anthropic({ maxRetries: 2, timeout: 4 * 60 * 1000 });
+  // One retry for transient failures; 140 s × 2 attempts stays within the route's 300 s limit.
+  client ??= new Anthropic({ maxRetries: 1, timeout: 140_000 });
   return client;
 }
 

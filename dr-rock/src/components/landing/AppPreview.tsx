@@ -4,7 +4,7 @@ import { FossilArt } from "@/components/art/FossilArt";
 import { LogoMark } from "@/components/brand/Logo";
 import { ResultSummary } from "@/components/results/ResultSummary";
 import { EXAMPLE_ANALYSIS } from "@/lib/analysis/example";
-import { getEntry } from "@/lib/library";
+import { LIBRARY, getEntry } from "@/lib/library";
 import { CATEGORY_META } from "@/lib/library/types";
 import { cn } from "@/lib/utils";
 
@@ -147,7 +147,7 @@ export function AppPreview() {
         <PhoneFrame caption="Results at a glance — illustrative example" className="lg:-translate-y-6">
           <ResultsScreen />
         </PhoneFrame>
-        <PhoneFrame caption="55 illustrated library entries">
+        <PhoneFrame caption={`${LIBRARY.length} illustrated library entries`}>
           <LibraryScreen />
         </PhoneFrame>
       </div>

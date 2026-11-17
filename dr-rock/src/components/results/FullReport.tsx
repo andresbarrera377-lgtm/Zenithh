@@ -133,8 +133,8 @@ function Chips({ items }: { items: string[] }) {
   if (items.length === 0) return <p className="text-sm text-granite-400">Not determined.</p>;
   return (
     <ul className="flex flex-wrap gap-2">
-      {items.map((item) => (
-        <li key={item} className="rounded-full bg-granite-800 px-3 py-1 text-sm text-granite-100 ring-1 ring-granite-600/60">
+      {items.map((item, i) => (
+        <li key={`${i}-${item}`} className="rounded-full bg-granite-800 px-3 py-1 text-sm text-granite-100 ring-1 ring-granite-600/60">
           {item}
         </li>
       ))}
@@ -190,8 +190,8 @@ function IdentificationSection({ a }: { a: RockAnalysis }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-granite-700/60">
-                {id.keyFeatures.map((f) => (
-                  <tr key={f.feature} className="align-top">
+                {id.keyFeatures.map((f, i) => (
+                  <tr key={`${i}-${f.feature}`} className="align-top">
                     <td className="px-4 py-3 font-medium text-chalk-50">{f.feature}</td>
                     <td className="px-4 py-3 text-granite-200">
                       {f.observation}
@@ -219,8 +219,8 @@ function IdentificationSection({ a }: { a: RockAnalysis }) {
         <div>
           <SubHeading>Other possibilities considered</SubHeading>
           <ul className="space-y-2">
-            {id.alternatives.map((alt) => (
-              <li key={alt.name} className="rounded-xl bg-carbon-900/60 p-3 text-sm ring-1 ring-granite-700/60">
+            {id.alternatives.map((alt, i) => (
+              <li key={`${i}-${alt.name}`} className="rounded-xl bg-carbon-900/60 p-3 text-sm ring-1 ring-granite-700/60">
                 <span className="font-medium text-chalk-50">{alt.name}</span>
                 <span className="text-granite-300"> — {alt.reason}</span>
               </li>
@@ -285,8 +285,8 @@ function AgeSection({ a }: { a: RockAnalysis }) {
         <div>
           <SubHeading>Related geological events</SubHeading>
           <ul className="grid gap-2 sm:grid-cols-2">
-            {relatedEvents.map((e) => (
-              <li key={e} className="flex gap-3 rounded-xl bg-carbon-900/60 p-3 text-sm text-granite-200 ring-1 ring-granite-700/60">
+            {relatedEvents.map((e, i) => (
+              <li key={`${i}-${e}`} className="flex gap-3 rounded-xl bg-carbon-900/60 p-3 text-sm text-granite-200 ring-1 ring-granite-700/60">
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-mineral-400" aria-hidden />
                 {e}
               </li>
@@ -332,8 +332,8 @@ function CompositionSection({ a }: { a: RockAnalysis }) {
         <SubHeading>Probable minerals</SubHeading>
         {c.minerals.length ? (
           <ul className="grid gap-2 sm:grid-cols-2">
-            {c.minerals.map((m) => (
-              <li key={m.name} className="flex items-center justify-between gap-3 rounded-xl bg-carbon-900/60 px-4 py-3 text-sm ring-1 ring-granite-700/60">
+            {c.minerals.map((m, i) => (
+              <li key={`${i}-${m.name}`} className="flex items-center justify-between gap-3 rounded-xl bg-carbon-900/60 px-4 py-3 text-sm ring-1 ring-granite-700/60">
                 <span className="font-medium text-chalk-50">{m.name}</span>
                 <span className="text-right text-granite-400">{m.role}</span>
               </li>
@@ -371,7 +371,7 @@ function FactsSection({ a }: { a: RockAnalysis }) {
   return (
     <ol className="grid gap-3 md:grid-cols-2">
       {a.didYouKnow.map((fact, i) => (
-        <li key={fact} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-mineral-500/10 to-transparent p-5 ring-1 ring-mineral-500/20">
+        <li key={`${i}-${fact}`} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-mineral-500/10 to-transparent p-5 ring-1 ring-mineral-500/20">
           <span className="font-display text-3xl font-semibold text-mineral-400/40">0{i + 1}</span>
           <p className="mt-2 text-[15px] leading-relaxed text-granite-100">{fact}</p>
         </li>
@@ -435,10 +435,10 @@ function PhotoSection({ a }: { a: RockAnalysis }) {
           <SubHeading>Limitations of this photo</SubHeading>
           {img.issues.length ? (
             <ul className="space-y-2 text-sm text-granite-200">
-              {img.issues.map((i) => (
-                <li key={i} className="flex gap-2">
+              {img.issues.map((issue, i) => (
+                <li key={`${i}-${issue}`} className="flex gap-2">
                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-ochre-400" aria-hidden />
-                  {i}
+                  {issue}
                 </li>
               ))}
             </ul>
@@ -449,8 +449,8 @@ function PhotoSection({ a }: { a: RockAnalysis }) {
         <div>
           <SubHeading>Tips for a better photo</SubHeading>
           <ul className="space-y-2 text-sm text-granite-200">
-            {img.photoTips.map((t) => (
-              <li key={t} className="flex gap-2">
+            {img.photoTips.map((t, i) => (
+              <li key={`${i}-${t}`} className="flex gap-2">
                 <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-mineral-400" aria-hidden />
                 {t}
               </li>
@@ -463,7 +463,7 @@ function PhotoSection({ a }: { a: RockAnalysis }) {
           <SubHeading>How to confirm the identification</SubHeading>
           <ol className="space-y-2">
             {a.verificationSteps.map((step, i) => (
-              <li key={step} className="flex gap-3 rounded-xl bg-carbon-900/60 p-3 text-sm text-granite-200 ring-1 ring-granite-700/60">
+              <li key={`${i}-${step}`} className="flex gap-3 rounded-xl bg-carbon-900/60 p-3 text-sm text-granite-200 ring-1 ring-granite-700/60">
                 <ClipboardCheck className="mt-0.5 h-4 w-4 shrink-0 text-mineral-400" aria-hidden />
                 <span>
                   <span className="font-mono text-xs text-granite-500">{String(i + 1).padStart(2, "0")} </span>

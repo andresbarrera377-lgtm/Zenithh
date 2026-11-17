@@ -30,8 +30,9 @@ export function formatDateTime(iso: string): string {
   return dateTimeFormatter.format(new Date(iso));
 }
 
-/** Formats a value in millions of years: 0.012 → "12,000 years", 4.5 → "4.5 Ma", 1200 → "1,200 Ma". */
+/** Formats millions of years: 0 → "present", 0.005 → "5,000 years", 0.3 → "300 thousand years", 4.5 → "4.5 Ma", 1200 → "1,200 Ma". */
 export function formatMa(value: number): string {
+  if (value <= 0) return "present";
   if (value < 0.01) return `${Math.round(value * 1_000_000).toLocaleString("en")} years`;
   if (value < 1) return `${Math.round(value * 1000).toLocaleString("en")} thousand years`;
   if (value < 10) return `${Number(value.toFixed(1)).toLocaleString("en")} Ma`;
@@ -42,9 +43,11 @@ export function formatMaRange(min: number | null, max: number | null): string | 
   if (min == null && max == null) return null;
   if (min != null && max != null) {
     if (Math.abs(max - min) < 1e-9) return `≈ ${formatMa(min)}`;
-    const lo = Math.min(min, max);
-    const hi = Math.max(min, max);
-    return `${formatMa(lo)} – ${formatMa(hi)}`;
+    const younger = Math.min(min, max);
+    const older = Math.max(min, max);
+    // Geological convention: oldest first, e.g. "485 – 299 Ma" or "525 Ma – present".
+    if (younger >= 10) return `${Math.round(older).toLocaleString("en")} – ${Math.round(younger).toLocaleString("en")} Ma`;
+    return `${formatMa(older)} – ${formatMa(younger)}`;
   }
   const only = (min ?? max) as number;
   return `≈ ${formatMa(only)}`;
