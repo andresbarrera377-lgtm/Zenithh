@@ -1,4 +1,4 @@
-# Netlify build settings for Dr.Rock (Next.js runtime is detected automatically).
+# Netlify build settings for Dr.Rock.
 # Secrets such as ANTHROPIC_API_KEY are set in the Netlify UI, never here.
 [build]
   command = "npm run build"
@@ -6,3 +6,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Next.js runtime (OpenNext adapter): turns pages and route handlers into Netlify Functions.
+# Projects created from the dashboard get it automatically; API/CLI-created ones need it declared.
+# Not pinned on purpose: Netlify keeps it up to date on every build.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
