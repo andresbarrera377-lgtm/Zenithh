@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# Signing material must never be committed.
+*.jks
+*.keystore
+keystore.properties

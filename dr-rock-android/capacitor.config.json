@@ -1,0 +1,18 @@
+{
+  "appId": "com.zenithh.drrock",
+  "appName": "Dr.Rock",
+  "webDir": "www",
+  "backgroundColor": "#0b0e0d",
+  "appendUserAgent": "DrRockAndroid/1.0",
+  "server": {
+    "url": "https://REPLACE-WITH-YOUR-DR-ROCK-ADDRESS/app",
+    "errorPath": "offline.html"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}

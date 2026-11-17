@@ -71,6 +71,12 @@ La app necesita un servidor Node (la ruta `/api/analyze` protege la clave), así
 - **Vercel**: importa el repositorio, elige `dr-rock` como *Root Directory*, añade `ANTHROPIC_API_KEY` en *Environment Variables* y despliega.
 - Cualquier hosting con Node 20+: `npm run build && npm start`.
 
+## Teléfono y PC
+
+- **Android:** la carpeta [`../dr-rock-android`](../dr-rock-android) genera un APK que abre la versión publicada (cámara nativa, icono y pantalla sin conexión). La clave sigue solo en el servidor.
+- **PC (Windows, Mac, Linux):** abre la dirección publicada en Chrome o Edge y pulsa el icono de instalar de la barra de direcciones (o *Instalar app* en la landing). Dr.Rock queda instalada como aplicación de escritorio, con su propia ventana y acceso en el menú de inicio.
+- **iPhone:** en Safari, *Compartir → Añadir a pantalla de inicio*.
+
 ## Documentación
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — arquitectura, tecnologías, cómo funciona el análisis, estructura del proyecto y la hoja de ruta de cuentas y sincronización.

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dr.Rock brand colours (match the web app's theme tokens). -->
+    <color name="drrock_carbon">#0B0E0D</color>
+    <color name="colorPrimary">#0B0E0D</color>
+    <color name="colorPrimaryDark">#060807</color>
+    <color name="colorAccent">#4FE3A4</color>
+</resources>

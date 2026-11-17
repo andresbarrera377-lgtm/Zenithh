@@ -1,0 +1,19 @@
+{
+  "name": "dr-rock-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Android app for Dr.Rock: a native shell that opens the deployed Dr.Rock web app.",
+  "scripts": {
+    "sync": "cap sync android",
+    "icons": "capacitor-assets generate --android",
+    "build:apk": "node scripts/build-apk.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2"
+  }
+}
