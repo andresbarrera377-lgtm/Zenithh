@@ -1,0 +1,59 @@
+// Dr.Rock — database schema prepared for accounts and cloud sync.
+//
+// NOT USED BY VERSION 1: the first release stores the collection locally in the
+// browser (IndexedDB). This schema mirrors the `Discovery` model in
+// src/lib/collection/types.ts so a cloud repository can be added without changing
+// the UI. See docs/ARCHITECTURE.md → "Cloud sync roadmap".
+//
+// To adopt it: `npm i -D prisma && npm i @prisma/client`, set DATABASE_URL and run
+// `npx prisma migrate dev`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String      @id @default(cuid())
+  email       String      @unique
+  name        String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  discoveries Discovery[]
+}
+
+model Discovery {
+  id            String   @id @default(cuid())
+  /// Client-generated id of the local record, used to reconcile sync.
+  localId       String
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId       String
+  schemaVersion Int      @default(1)
+  title         String
+  notes         String   @default("")
+  tags          String[]
+  favorite      Boolean  @default(false)
+  /// Object-storage keys (e.g. S3 / R2 / Blob) — images are not stored in the database.
+  imageKey      String
+  thumbnailKey  String
+  /// Full structured report (RockAnalysis JSON, see src/lib/analysis/schema.ts).
+  analysis      Json
+  /// Denormalized fields for filtering and search.
+  rockName      String
+  verdict       String
+  classification String
+  /// AnalysisMeta and optional field context.
+  meta          Json
+  context       Json?
+  createdAt     DateTime
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([ownerId, localId])
+  @@index([ownerId, createdAt])
+  @@index([ownerId, verdict])
+}
