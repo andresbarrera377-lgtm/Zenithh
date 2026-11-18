@@ -216,4 +216,4 @@ export type AnalysisErrorCode =
 
 export type AnalyzeResponse =
   | { ok: true; analysis: RockAnalysis; meta: AnalysisMeta }
-  | { ok: false; error: { code: AnalysisErrorCode; message: string; retryAfterSeconds?: number } };
+  | { ok: false; error: { code: AnalysisErrorCode; message: string; retryAfterSeconds?: number; detail?: string } };

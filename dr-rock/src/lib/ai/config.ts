@@ -24,6 +24,8 @@ export function getAiConfig() {
     // Server-side refusal fallback needs an `anthropic-beta` header. AI gateways that don't forward
     // beta headers (e.g. Netlify AI Gateway) reject it, so it can be turned off with "off".
     serverFallbacks: process.env.DR_ROCK_SERVER_FALLBACKS?.trim().toLowerCase() !== "off",
+    // Diagnostics only: include the upstream API error message in error responses.
+    debugErrors: process.env.DR_ROCK_DEBUG_ERRORS?.trim().toLowerCase() === "on",
     rateLimitMax: positiveInt(process.env.RATE_LIMIT_MAX, 12),
     rateLimitWindowSeconds: positiveInt(process.env.RATE_LIMIT_WINDOW_SECONDS, 600),
   };

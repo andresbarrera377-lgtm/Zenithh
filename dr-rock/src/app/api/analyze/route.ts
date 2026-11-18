@@ -22,8 +22,9 @@ function errorResponse(
   code: AnalysisErrorCode,
   message: string,
   retryAfterSeconds?: number,
+  detail?: string,
 ): Response {
-  const body: AnalyzeResponse = { ok: false, error: { code, message, retryAfterSeconds } };
+  const body: AnalyzeResponse = { ok: false, error: { code, message, retryAfterSeconds, detail } };
   const headers: HeadersInit = { "Cache-Control": "no-store" };
   if (retryAfterSeconds) headers["Retry-After"] = String(retryAfterSeconds);
   return Response.json(body, { status, headers });
@@ -142,7 +143,8 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof AnalysisError) {
-      return errorResponse(error.status, error.code, error.message, error.retryAfterSeconds);
+      const detail = getAiConfig().debugErrors ? error.detail : undefined;
+      return errorResponse(error.status, error.code, error.message, error.retryAfterSeconds, detail);
     }
     console.error(`[dr-rock] ${requestId} unexpected error`, error);
     return errorResponse(500, "UNKNOWN", "Something went wrong during the analysis. Please try again.");

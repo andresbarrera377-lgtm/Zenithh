@@ -54,6 +54,7 @@ beforeEach(() => {
   lastRequestBody = null;
   lastBetaHeader = undefined;
   delete process.env.DR_ROCK_SERVER_FALLBACKS;
+  delete process.env.DR_ROCK_DEBUG_ERRORS;
   process.env.ANTHROPIC_API_KEY = "test-key";
   process.env.RATE_LIMIT_MAX = "100";
 });
@@ -79,6 +80,23 @@ describe("POST /api/analyze", () => {
     expect(status).toBe(200);
     expect(lastBetaHeader).toContain("server-side-fallback-2026-07-01");
     expect(lastRequestBody?.fallbacks).toBe("default");
+  });
+
+  it("returns the upstream error detail only when DR_ROCK_DEBUG_ERRORS=on", async () => {
+    const rejection = { status: 400, body: { type: "error", error: { type: "invalid_request_error", message: "unsupported thing" } } };
+    const form = () => {
+      const f = new FormData();
+      return photo().then((p) => (f.append("image", p, "rock.jpg"), f));
+    };
+    nextReply = rejection;
+    const quiet = await post(await form());
+    expect(quiet.status).toBe(422);
+    expect(quiet.body.ok === false && quiet.body.error.detail).toBeFalsy();
+
+    process.env.DR_ROCK_DEBUG_ERRORS = "on";
+    nextReply = rejection;
+    const verbose = await post(await form());
+    expect(verbose.body.ok === false && verbose.body.error.detail).toContain("unsupported thing");
   });
 
   it("uses GA structured outputs with no beta header when fallbacks are off (AI gateways)", async () => {

@@ -9,6 +9,9 @@ import { getAiConfig } from "./config";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
 
 export class AnalysisError extends Error {
+  /** Upstream API status + message, returned to clients only when DR_ROCK_DEBUG_ERRORS=on. */
+  detail?: string;
+
   constructor(
     public readonly code: AnalysisErrorCode,
     public readonly status: number,
@@ -94,7 +97,9 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
         );
   } catch (error) {
     logAiError(error);
-    throw mapSdkError(error);
+    const mapped = mapSdkError(error);
+    if (error instanceof Anthropic.APIError) mapped.detail = `${error.status ?? ""} ${error.message}`.trim().slice(0, 500);
+    throw mapped;
   }
 
   if (response.stop_reason === "refusal") {
