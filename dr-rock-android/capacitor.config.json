@@ -5,7 +5,7 @@
   "backgroundColor": "#0b0e0d",
   "appendUserAgent": "DrRockAndroid/1.0",
   "server": {
-    "url": "https://REPLACE-WITH-YOUR-DR-ROCK-ADDRESS/app",
+    "url": "https://dr-rock.netlify.app/app",
     "errorPath": "offline.html"
   },
   "plugins": {
