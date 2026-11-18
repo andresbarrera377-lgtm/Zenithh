@@ -77,7 +77,7 @@ La app necesita un servidor Node (la ruta `/api/analyze` protege la clave), así
 
 ## Teléfono y PC
 
-- **Android:** la carpeta [`../dr-rock-android`](../dr-rock-android) genera un APK que abre la versión publicada (cámara nativa, icono y pantalla sin conexión). La clave sigue solo en el servidor.
+- **Android:** la carpeta [`../dr-rock-android`](../dr-rock-android) genera un APK que abre la versión publicada (cámara nativa, icono y pantalla sin conexión). La clave sigue solo en el servidor. El APK se publica en `public/downloads/Dr.Rock.apk` y se descarga desde la sección *Download* de la landing.
 - **PC (Windows, Mac, Linux):** abre la dirección publicada en Chrome o Edge y pulsa el icono de instalar de la barra de direcciones (o *Instalar app* en la landing). Dr.Rock queda instalada como aplicación de escritorio, con su propia ventana y acceso en el menú de inicio.
 - **iPhone:** en Safari, *Compartir → Añadir a pantalla de inicio*.
 

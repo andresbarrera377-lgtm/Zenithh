@@ -33,6 +33,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // The Android app download: served as a file to save, not a page.
+        source: "/downloads/:file*.apk",
+        headers: [
+          { key: "Content-Type", value: "application/vnd.android.package-archive" },
+          { key: "Content-Disposition", value: 'attachment; filename="Dr.Rock.apk"' },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
+      {
         source: "/library/:file*",
         headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
       },

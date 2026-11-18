@@ -24,7 +24,7 @@ export DR_ROCK_KEY_PASSWORD=...
 node scripts/build-apk.mjs https://tu-dr-rock.vercel.app
 ```
 
-El APK queda en `dist/Dr.Rock.apk`. La dirección se guarda en `capacitor.config.json`, así que las siguientes compilaciones no necesitan repetirla. Sin variables de firma se genera `dist/Dr.Rock-debug.apk`, firmado en modo depuración, solo para pruebas.
+El APK queda en `dist/Dr.Rock.apk`. Para publicarlo en la web (botón "Download APK" de la landing), cópialo a `../dr-rock/public/downloads/Dr.Rock.apk`, actualiza `androidApk` en `../dr-rock/src/lib/site.ts` si cambian la versión o el tamaño (una prueba lo comprueba) y vuelve a desplegar. La dirección se guarda en `capacitor.config.json`, así que las siguientes compilaciones no necesitan repetirla. Sin variables de firma se genera `dist/Dr.Rock-debug.apk`, firmado en modo depuración, solo para pruebas.
 
 Para crear un keystore nuevo:
 

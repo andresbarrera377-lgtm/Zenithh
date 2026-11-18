@@ -98,7 +98,7 @@ const FAQ = [
   },
   {
     q: "Do I need to install anything?",
-    a: "No. Dr.Rock runs in your browser on Android, iPhone, Windows and Mac. You can optionally install it as an app from your browser for quick, full-screen access.",
+    a: "No. Dr.Rock runs in your browser on Android, iPhone, Windows and Mac. If you prefer an app, download the Android APK from the Download section, or install it from your browser on a computer or iPhone.",
   },
 ];
 

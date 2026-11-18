@@ -11,6 +11,13 @@ export const siteConfig = {
   /** Optional public contact address shown on the landing page footer. */
   contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || null,
   appPath: "/app",
+  /** Android app (Capacitor shell that opens this site), built from ../dr-rock-android. */
+  androidApk: {
+    href: "/downloads/Dr.Rock.apk",
+    version: "1.0",
+    size: "3.9 MB",
+    minAndroid: "7.0",
+  },
 } as const;
 
 export const SCIENTIFIC_DISCLAIMER =

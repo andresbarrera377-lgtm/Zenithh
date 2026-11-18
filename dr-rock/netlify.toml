@@ -17,3 +17,11 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Android app download (static file on the CDN): save as a file, refresh hourly.
+[[headers]]
+  for = "/downloads/*.apk"
+  [headers.values]
+    Content-Type = "application/vnd.android.package-archive"
+    Content-Disposition = 'attachment; filename="Dr.Rock.apk"'
+    Cache-Control = "public, max-age=3600"

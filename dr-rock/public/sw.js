@@ -84,6 +84,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return; // never cache AI requests
+  if (url.pathname.startsWith("/downloads/")) return; // app downloads always come fresh from the network
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request, { navigation: true }));

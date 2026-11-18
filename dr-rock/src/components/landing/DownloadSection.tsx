@@ -1,89 +1,111 @@
-import { Globe, Laptop, Monitor, Smartphone, TabletSmartphone } from "lucide-react";
+import { Download, Globe, Laptop, Smartphone, TabletSmartphone } from "lucide-react";
+import type { ReactNode } from "react";
 import { InstallButton } from "@/components/pwa/InstallButton";
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { Badge, Panel } from "@/components/ui/primitives";
+import { siteConfig } from "@/lib/site";
 
-const PLATFORMS = [
-  {
-    name: "Android",
-    icon: Smartphone,
-    install: "Open Dr.Rock in Chrome, tap the ⋮ menu and choose “Install app”.",
-  },
-  {
-    name: "iPhone & iPad",
-    icon: TabletSmartphone,
-    install: "Open Dr.Rock in Safari, tap Share and choose “Add to Home Screen”.",
-  },
-  {
-    name: "Windows",
-    icon: Monitor,
-    install: "In Chrome or Edge, click the install icon in the address bar.",
-  },
-  {
-    name: "macOS",
-    icon: Laptop,
-    install: "In Chrome or Edge use the install icon; in Safari choose File › Add to Dock.",
-  },
-];
+function PlatformCard({
+  icon,
+  name,
+  children,
+  action,
+  footnote,
+  highlight = false,
+}: {
+  icon: ReactNode;
+  name: string;
+  children: ReactNode;
+  action: ReactNode;
+  footnote: ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <Panel className={highlight ? "relative overflow-hidden p-6 ring-1 ring-mineral-500/40" : "relative overflow-hidden p-6"}>
+      {highlight && (
+        <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-mineral-500/20 blur-3xl" aria-hidden />
+      )}
+      <div className="relative flex h-full flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="flex items-center gap-2.5 font-display text-xl font-semibold text-chalk-50">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-carbon-900 text-mineral-400 ring-1 ring-granite-700">{icon}</span>
+            {name}
+          </p>
+          <Badge tone="mineral">Available</Badge>
+        </div>
+        <p className="text-sm leading-relaxed text-granite-300">{children}</p>
+        <div className="mt-auto space-y-3 pt-2">
+          {action}
+          {/* Equal footnote height keeps the three buttons aligned on wide screens. */}
+          <p className="text-xs leading-relaxed text-granite-500 lg:min-h-[3.75rem]">{footnote}</p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
 
 /**
- * Honest download options: the web app is live and installable as a PWA today.
- * Native store builds are announced as "coming soon" — no links to files that don't exist.
+ * Download options. Every button leads to something real: the Android APK hosted on this site,
+ * the browser install prompt (PWA) on computers, and Add to Home Screen on iPhone.
  */
 export function DownloadSection() {
+  const apk = siteConfig.androidApk;
   return (
-    <div className="space-y-8">
-      <Panel className="relative overflow-hidden p-6 sm:p-10">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-mineral-500/20 blur-3xl" aria-hidden />
-        <div className="relative grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-center">
-          <div className="space-y-4">
-            <Badge tone="mineral" icon={<Globe className="h-3.5 w-3.5" />}>
-              Available now
-            </Badge>
-            <h3 className="font-display text-3xl font-semibold tracking-tight text-chalk-50">Dr.Rock web app</h3>
-            <p className="max-w-lg leading-relaxed text-granite-300">
-              Runs in any modern browser on phones, tablets and computers — no store needed. Install it to your home screen or
-              desktop and it opens like a native app, with your library and collection available offline.
-            </p>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/app" size="lg">
-                Open the web app
-              </ButtonLink>
-              <InstallButton />
-            </div>
-          </div>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {PLATFORMS.map(({ name, icon: Icon, install }) => (
-              <li key={name} className="rounded-2xl bg-carbon-900/70 p-4 ring-1 ring-granite-700/70">
-                <p className="mb-1.5 flex items-center gap-2 font-medium text-chalk-50">
-                  <Icon className="h-4 w-4 text-mineral-400" /> {name}
-                </p>
-                <p className="text-xs leading-relaxed text-granite-400">{install}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </Panel>
+    <div className="space-y-6">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <PlatformCard
+          highlight
+          icon={<Smartphone className="h-5 w-5" />}
+          name="Android"
+          action={
+            <a href={apk.href} download="Dr.Rock.apk" className={buttonClasses({ size: "lg", className: "w-full" })}>
+              <Download className="h-4 w-4" /> Download APK
+            </a>
+          }
+          footnote={
+            <>
+              Version {apk.version} · {apk.size} · Android {apk.minAndroid} or later. The first time, Android asks you to allow
+              installing apps from your browser or file manager.
+            </>
+          }
+        >
+          Download the Dr.Rock app and install it on your phone: home-screen icon, full screen and direct access to the camera.
+        </PlatformCard>
 
-      <div className="space-y-4">
-        <p className="label-mono text-center text-granite-500">Native apps</p>
-        <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {PLATFORMS.map(({ name, icon: Icon }) => (
-            <li
-              key={name}
-              aria-label={`${name} app — coming soon`}
-              className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-granite-600/60 px-4 py-6 text-center"
-            >
-              <Icon className="h-7 w-7 text-granite-400" />
-              <span className="font-display font-semibold text-granite-200">{name === "iPhone & iPad" ? "iOS" : name}</span>
-              <Badge tone="granite">Coming soon</Badge>
-            </li>
-          ))}
-        </ul>
-        <p className="text-center text-xs text-granite-500">
-          Native store versions are planned. Until then, the installable web app offers the full experience on every platform.
-        </p>
+        <PlatformCard
+          icon={<Laptop className="h-5 w-5" />}
+          name="Windows & Mac"
+          action={
+            <InstallButton
+              className="w-full"
+              fallback={
+                <ButtonLink href="/app" size="lg" variant="secondary" className="w-full" icon={<Globe className="h-4 w-4" />}>
+                  Open the web app
+                </ButtonLink>
+              }
+            />
+          }
+          footnote="In Chrome or Edge, click the install icon in the address bar. In Safari on Mac, choose File › Add to Dock."
+        >
+          Install Dr.Rock as a desktop app straight from your browser: its own window and an icon in the Start menu or Dock.
+        </PlatformCard>
+
+        <PlatformCard
+          icon={<TabletSmartphone className="h-5 w-5" />}
+          name="iPhone & iPad"
+          action={
+            <ButtonLink href="/app" size="lg" variant="secondary" className="w-full" icon={<Globe className="h-4 w-4" />}>
+              Open in Safari
+            </ButtonLink>
+          }
+          footnote="An App Store version is not available yet."
+        >
+          Open Dr.Rock in Safari, tap Share and choose “Add to Home Screen”. It then opens full screen, like an app.
+        </PlatformCard>
       </div>
+      <p className="text-center text-xs text-granite-500">
+        Every version uses the same AI analysis, which needs an internet connection. Your collection is saved on each device.
+      </p>
     </div>
   );
 }
