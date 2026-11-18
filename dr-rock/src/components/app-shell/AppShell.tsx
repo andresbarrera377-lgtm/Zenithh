@@ -5,23 +5,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Logo } from "@/components/brand/Logo";
+import { LanguageSwitch } from "@/components/i18n/LanguageSwitch";
+import { useMessages } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 import { AiStatusIndicator } from "./AiStatus";
 
+type NavKey = keyof Messages["common"]["nav"];
+
 interface NavItem {
   href: string;
-  label: string;
+  key: NavKey;
   icon: LucideIcon;
   /** Extra path prefixes that should highlight this item. */
   match?: string[];
 }
 
 const NAV: NavItem[] = [
-  { href: "/app", label: "Home", icon: House },
-  { href: "/app/scan", label: "Scan rock", icon: ScanLine, match: ["/app/analysis", "/app/results"] },
-  { href: "/app/library", label: "Rock Library", icon: BookOpenText },
-  { href: "/app/collection", label: "My Collection", icon: Gem },
-  { href: "/app/about", label: "About", icon: Info },
+  { href: "/app", key: "home", icon: House },
+  { href: "/app/scan", key: "scan", icon: ScanLine, match: ["/app/analysis", "/app/results"] },
+  { href: "/app/library", key: "library", icon: BookOpenText },
+  { href: "/app/collection", key: "collection", icon: Gem },
+  { href: "/app/about", key: "about", icon: Info },
 ];
 
 function isActive(pathname: string, item: NavItem) {
@@ -30,12 +35,13 @@ function isActive(pathname: string, item: NavItem) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const t = useMessages("common");
   return (
     <div className="relative min-h-dvh">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r hairline bg-carbon-900/80 backdrop-blur-xl lg:flex">
         <div className="flex h-20 items-center px-6">
-          <Link href="/app" aria-label="Dr.Rock home">
+          <Link href="/app" aria-label={t.home}>
             <Logo />
           </Link>
         </div>
@@ -44,8 +50,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Suspense>
         <div className="space-y-4 border-t hairline p-5">
           <AiStatusIndicator />
+          <LanguageSwitch />
           <Link href="/" className="block text-xs text-granite-400 transition-colors hover:text-chalk-50">
-            ← Dr.Rock website
+            {t.backToWebsite}
           </Link>
         </div>
       </aside>
@@ -53,10 +60,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Mobile top bar */}
       <header className="safe-top sticky top-0 z-40 border-b hairline bg-carbon-950/80 backdrop-blur-xl lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/app" aria-label="Dr.Rock home">
+          <Link href="/app" aria-label={t.home}>
             <Logo markClassName="h-7 w-7" wordmarkClassName="text-lg" />
           </Link>
-          <AiStatusIndicator compact />
+          <div className="flex items-center gap-3">
+            <LanguageSwitch />
+            <AiStatusIndicator compact />
+          </div>
         </div>
       </header>
 
@@ -66,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Mobile bottom tab bar */}
       <nav
-        aria-label="Main"
+        aria-label={t.mainNav}
         className="safe-bottom-tabbar fixed inset-x-0 bottom-0 z-40 border-t hairline bg-carbon-950/90 backdrop-blur-xl lg:hidden"
       >
         <Suspense fallback={<TabBarNav pathname="" />}>
@@ -86,8 +96,9 @@ function ActiveTabBarNav() {
 }
 
 function SidebarNav({ pathname }: { pathname: string }) {
+  const t = useMessages("common");
   return (
-    <nav aria-label="Main" className="flex-1 space-y-1 px-3 py-2">
+    <nav aria-label={t.mainNav} className="flex-1 space-y-1 px-3 py-2">
       {NAV.map((item) => {
         const active = isActive(pathname, item);
         const Icon = item.icon;
@@ -104,7 +115,7 @@ function SidebarNav({ pathname }: { pathname: string }) {
             )}
           >
             <Icon className={cn("h-[18px] w-[18px]", active ? "text-mineral-400" : "text-granite-400 group-hover:text-chalk-50")} />
-            {item.label}
+            {t.nav[item.key]}
           </Link>
         );
       })}
@@ -113,6 +124,7 @@ function SidebarNav({ pathname }: { pathname: string }) {
 }
 
 function TabBarNav({ pathname }: { pathname: string }) {
+  const t = useMessages("common");
   return (
     <ul className="mx-auto grid h-16 max-w-md grid-cols-5 items-center px-2">
       {NAV.map((item) => {
@@ -124,7 +136,7 @@ function TabBarNav({ pathname }: { pathname: string }) {
             <Link
               href={item.href}
               aria-current={active ? "page" : undefined}
-              aria-label={item.label}
+              aria-label={t.nav[item.key]}
               className={cn(
                 "flex flex-col items-center gap-1 text-[10px] font-medium transition-colors",
                 active ? "text-mineral-300" : "text-granite-400 hover:text-chalk-50",
@@ -137,7 +149,7 @@ function TabBarNav({ pathname }: { pathname: string }) {
               ) : (
                 <Icon className="h-5 w-5" />
               )}
-              <span>{isScan ? "Scan" : item.label.replace("Rock ", "").replace("My ", "")}</span>
+              <span>{t.navShort[item.key]}</span>
             </Link>
           </li>
         );

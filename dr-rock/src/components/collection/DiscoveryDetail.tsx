@@ -10,6 +10,7 @@ import { EmptyState, Notice, Panel } from "@/components/ui/primitives";
 import { normalizeTags } from "@/lib/collection/indexeddb-repository";
 import { deleteDiscovery, updateDiscovery, useDiscovery, useObjectUrl } from "@/lib/collection/store";
 import type { Discovery } from "@/lib/collection/types";
+import { useLocale, useMessages } from "@/lib/i18n/client";
 import { cn, formatDateTime } from "@/lib/utils";
 
 export function DiscoveryDetail() {
@@ -17,6 +18,8 @@ export function DiscoveryDetail() {
   const id = typeof params.id === "string" ? params.id : null;
   const { data, loading, error } = useDiscovery(id);
   const imageUrl = useObjectUrl(data?.image);
+  const tc = useMessages("collection");
+  const t = tc.detail;
 
   if (loading) {
     return (
@@ -26,14 +29,14 @@ export function DiscoveryDetail() {
       </div>
     );
   }
-  if (error) return <Notice kind="error" title="Could not open this discovery">{error}</Notice>;
+  if (error) return <Notice kind="error" title={t.openError}>{tc.openErrorText}</Notice>;
   if (!data) {
     return (
       <EmptyState
         icon={<Gem className="h-6 w-6" />}
-        title="Discovery not found"
-        description="It may have been deleted, or it was saved in a different browser or device."
-        action={<ButtonLink href="/app/collection">Back to collection</ButtonLink>}
+        title={t.notFoundTitle}
+        description={t.notFoundText}
+        action={<ButtonLink href="/app/collection">{t.back}</ButtonLink>}
       />
     );
   }
@@ -41,7 +44,7 @@ export function DiscoveryDetail() {
   return (
     <div className="space-y-8">
       <Link href="/app/collection" className="inline-flex items-center gap-2 text-sm text-granite-400 transition-colors hover:text-chalk-50">
-        <ArrowLeft className="h-4 w-4" /> My Collection
+        <ArrowLeft className="h-4 w-4" /> {t.backLink}
       </Link>
       <JournalEditor discovery={data} />
       <ResultsView analysis={data.analysis} meta={data.meta} imageSrc={imageUrl} context={data.context} />
@@ -57,6 +60,8 @@ function JournalEditor({ discovery }: { discovery: Discovery }) {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const t = useMessages("collection").detail;
+  const locale = useLocale();
 
   useEffect(() => () => {
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -89,18 +94,18 @@ function JournalEditor({ discovery }: { discovery: Discovery }) {
     <Panel className="space-y-5 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="label-mono text-mineral-400">Field journal</p>
-          <p className="text-xs text-granite-500">Saved {formatDateTime(discovery.createdAt)}</p>
+          <p className="label-mono text-mineral-400">{t.journal}</p>
+          <p className="text-xs text-granite-500">{t.saved(formatDateTime(discovery.createdAt, locale))}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className={cn("flex items-center gap-1 text-xs transition-opacity", status === "idle" ? "opacity-0" : "opacity-100", status === "error" ? "text-jasper-300" : "text-mineral-300")} aria-live="polite">
-            {status === "saving" && "Saving…"}
+            {status === "saving" && t.saving}
             {status === "saved" && (
               <>
-                <Check className="h-3.5 w-3.5" /> Saved
+                <Check className="h-3.5 w-3.5" /> {t.savedOk}
               </>
             )}
-            {status === "error" && "Could not save"}
+            {status === "error" && t.couldNotSave}
           </span>
           <button
             type="button"
@@ -112,39 +117,39 @@ function JournalEditor({ discovery }: { discovery: Discovery }) {
             aria-pressed={discovery.favorite}
           >
             <Star className="h-4 w-4" fill={discovery.favorite ? "currentColor" : "none"} />
-            {discovery.favorite ? "Favourite" : "Add to favourites"}
+            {discovery.favorite ? t.favorite : t.addFavorite}
           </button>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1.5">
-          <span className="text-sm font-medium text-granite-200">Name</span>
+          <span className="text-sm font-medium text-granite-200">{t.name}</span>
           <input
             value={title}
             maxLength={80}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => {
-              const t = title.trim() || discovery.analysis.identification.rockName;
-              setTitle(t);
-              if (t !== discovery.title) persist({ title: t });
+              const next = title.trim() || discovery.analysis.identification.rockName;
+              setTitle(next);
+              if (next !== discovery.title) persist({ title: next });
             }}
             className="h-11 w-full rounded-xl border-0 bg-carbon-900 px-4 text-sm text-chalk-50 ring-1 ring-inset ring-granite-600/70 focus:outline-none focus:ring-2 focus:ring-mineral-400"
           />
         </label>
         <div className="space-y-1.5">
           <span className="text-sm font-medium text-granite-200" id="tags-label">
-            Tags
+            {t.tags}
           </span>
           <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl bg-carbon-900 px-2 py-1.5 ring-1 ring-inset ring-granite-600/70 focus-within:ring-2 focus-within:ring-mineral-400">
-            {discovery.tags.map((t) => (
-              <span key={t} className="inline-flex items-center gap-1 rounded-full bg-granite-800 px-2.5 py-1 text-xs text-granite-100">
-                #{t}
+            {discovery.tags.map((tg) => (
+              <span key={tg} className="inline-flex items-center gap-1 rounded-full bg-granite-800 px-2.5 py-1 text-xs text-granite-100">
+                #{tg}
                 <button
                   type="button"
-                  onClick={() => persist({ tags: discovery.tags.filter((x) => x !== t) })}
+                  onClick={() => persist({ tags: discovery.tags.filter((x) => x !== tg) })}
                   className="text-granite-400 hover:text-chalk-50"
-                  aria-label={`Remove tag ${t}`}
+                  aria-label={t.removeTag(tg)}
                 >
                   ×
                 </button>
@@ -161,20 +166,20 @@ function JournalEditor({ discovery }: { discovery: Discovery }) {
                 }
               }}
               onBlur={() => tagInput.trim() && addTags(tagInput)}
-              placeholder={discovery.tags.length ? "Add tag" : "e.g. beach, 2026 trip, ammonites"}
+              placeholder={discovery.tags.length ? t.addTag : t.tagPlaceholder}
               className="min-w-24 flex-1 bg-transparent px-2 text-sm text-chalk-50 placeholder:text-granite-500 focus:outline-none"
             />
           </div>
         </div>
         <label className="space-y-1.5 md:col-span-2">
-          <span className="text-sm font-medium text-granite-200">Personal notes</span>
+          <span className="text-sm font-medium text-granite-200">{t.notes}</span>
           <textarea
             rows={4}
             maxLength={4000}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             onBlur={() => notes !== discovery.notes && persist({ notes })}
-            placeholder="Where you found it, who you were with, tests you tried…"
+            placeholder={t.notesPlaceholder}
             className="w-full resize-y rounded-xl border-0 bg-carbon-900 px-4 py-3 text-sm leading-relaxed text-chalk-50 ring-1 ring-inset ring-granite-600/70 placeholder:text-granite-500 focus:outline-none focus:ring-2 focus:ring-mineral-400"
           />
         </label>
@@ -183,17 +188,17 @@ function JournalEditor({ discovery }: { discovery: Discovery }) {
       <div className="flex flex-wrap items-center justify-end gap-2 border-t hairline pt-4">
         {confirmDelete ? (
           <>
-            <span className="text-sm text-granite-300">Delete this discovery permanently?</span>
+            <span className="text-sm text-granite-300">{t.confirmDelete}</span>
             <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button variant="danger" size="sm" onClick={remove} icon={<Trash2 className="h-4 w-4" />}>
-              Delete
+              {t.delete}
             </Button>
           </>
         ) : (
           <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} icon={<Trash2 className="h-4 w-4" />}>
-            Delete
+            {t.delete}
           </Button>
         )}
       </div>

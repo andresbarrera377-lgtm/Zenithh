@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { fetchAiStatus } from "@/lib/analysis/client";
+import { useMessages } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 type Status = "checking" | "ready" | "not-configured" | "unreachable";
@@ -51,20 +52,21 @@ export function useAiStatus(): Status | "offline" {
 }
 
 const META = {
-  checking: { label: "Checking AI engine", dot: "bg-granite-400", text: "text-granite-300" },
-  ready: { label: "AI engine online", dot: "bg-mineral-400", text: "text-mineral-300" },
-  "not-configured": { label: "AI not configured", dot: "bg-jasper-400", text: "text-jasper-300" },
-  unreachable: { label: "Server unreachable", dot: "bg-ochre-400", text: "text-ochre-300" },
-  offline: { label: "Offline", dot: "bg-ochre-400", text: "text-ochre-300" },
+  checking: { key: "checking", dot: "bg-granite-400", text: "text-granite-300" },
+  ready: { key: "ready", dot: "bg-mineral-400", text: "text-mineral-300" },
+  "not-configured": { key: "notConfigured", dot: "bg-jasper-400", text: "text-jasper-300" },
+  unreachable: { key: "unreachable", dot: "bg-ochre-400", text: "text-ochre-300" },
+  offline: { key: "offline", dot: "bg-ochre-400", text: "text-ochre-300" },
 } as const;
 
 export function AiStatusIndicator({ className, compact = false }: { className?: string; compact?: boolean }) {
   const status = useAiStatus();
   const meta = META[status];
+  const label = useMessages("common").ai[meta.key];
   return (
     <span
       className={cn("inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em]", meta.text, className)}
-      title={meta.label}
+      title={label}
     >
       <span className="relative flex h-2 w-2">
         {status === "ready" && (
@@ -72,7 +74,7 @@ export function AiStatusIndicator({ className, compact = false }: { className?: 
         )}
         <span className={cn("relative inline-flex h-2 w-2 rounded-full", meta.dot)} />
       </span>
-      <span className={compact ? "sr-only" : undefined}>{meta.label}</span>
+      <span className={compact ? "sr-only" : undefined}>{label}</span>
     </span>
   );
 }

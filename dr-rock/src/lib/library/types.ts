@@ -72,7 +72,9 @@ export interface LibraryEntry {
   related?: string[];
 }
 
-export const CATEGORY_META: Record<LibraryCategory, { label: string; plural: string; group: string; description: string }> = {
+type CategoryMeta = { label: string; plural: string; group: string; description: string };
+
+const CATEGORY_META_EN: Record<LibraryCategory, CategoryMeta> = {
   igneous: {
     label: "Igneous rock",
     plural: "Igneous rocks",
@@ -122,3 +124,62 @@ export const CATEGORY_META: Record<LibraryCategory, { label: string; plural: str
     description: "The great divisions of Earth history, separated by mass extinctions.",
   },
 };
+
+const CATEGORY_META_ES: Record<LibraryCategory, CategoryMeta> = {
+  igneous: {
+    label: "Roca ígnea",
+    plural: "Rocas ígneas",
+    group: "Rocas",
+    description: "Nacidas del fuego: rocas que cristalizaron a partir de magma o lava fundidos.",
+  },
+  sedimentary: {
+    label: "Roca sedimentaria",
+    plural: "Rocas sedimentarias",
+    group: "Rocas",
+    description: "Archivos en capas de la superficie terrestre, hechos de sedimentos, conchas y minerales: el hogar de casi todos los fósiles.",
+  },
+  metamorphic: {
+    label: "Roca metamórfica",
+    plural: "Rocas metamórficas",
+    group: "Rocas",
+    description: "Rocas transformadas por el calor, la presión y los fluidos en lo profundo de la corteza, sin llegar a fundirse.",
+  },
+  "marine-fossil": {
+    label: "Fósil marino",
+    plural: "Fósiles marinos",
+    group: "Fósiles",
+    description: "Restos y huellas de la vida marina antigua, los fósiles más comunes de la Tierra.",
+  },
+  "terrestrial-fossil": {
+    label: "Fósil terrestre",
+    plural: "Fósiles terrestres",
+    group: "Fósiles",
+    description: "Plantas, animales y huellas conservados de antiguos ambientes terrestres.",
+  },
+  mineral: {
+    label: "Mineral",
+    plural: "Minerales",
+    group: "Minerales",
+    description: "Los ladrillos cristalinos que forman todas las rocas.",
+  },
+  period: {
+    label: "Periodo geológico",
+    plural: "Periodos geológicos",
+    group: "Tiempo profundo",
+    description: "Los capítulos del Fanerozoico: los últimos 539 millones de años de vida compleja.",
+  },
+  era: {
+    label: "Era geológica",
+    plural: "Eras geológicas",
+    group: "Tiempo profundo",
+    description: "Las grandes divisiones de la historia de la Tierra, separadas por extinciones masivas.",
+  },
+};
+
+export const CATEGORY_META: Record<"es" | "en", Record<LibraryCategory, CategoryMeta>> = {
+  es: CATEGORY_META_ES,
+  en: CATEGORY_META_EN,
+};
+
+/** The translatable text of an entry; the Spanish overlays in data/es provide one per entry id. */
+export type EntryText = Pick<LibraryEntry, "name" | "aka" | "summary" | "description" | "formation" | "age" | "facts" | "properties" | "tags">;

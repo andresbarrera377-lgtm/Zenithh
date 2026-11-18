@@ -1,15 +1,19 @@
-import { cn } from "@/lib/utils";
+"use client";
 
-const REFERENCE = ["Talc", "Gypsum", "Calcite", "Fluorite", "Apatite", "Orthoclase", "Quartz", "Topaz", "Corundum", "Diamond"];
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { cn } from "@/lib/utils";
 
 /** Mohs hardness scale (1–10) with the specimen's typical range highlighted. */
 export function MohsScale({ min, max, className }: { min: number | null; max: number | null; className?: string }) {
   const lo = min ?? max;
   const hi = max ?? min;
+  const t = useMessages("report").mohs;
+  const locale = useLocale();
+  const n = (v: number) => v.toLocaleString(locale === "es" ? "es-ES" : "en");
   return (
     <div className={cn("space-y-2", className)}>
       <div className="grid grid-cols-10 gap-1">
-        {REFERENCE.map((name, i) => {
+        {t.reference.map((name, i) => {
           const value = i + 1;
           const active = lo != null && hi != null && value >= Math.floor(lo) && value <= Math.ceil(hi);
           return (
@@ -29,11 +33,10 @@ export function MohsScale({ min, max, className }: { min: number | null; max: nu
       </div>
       <p className="text-sm text-granite-300">
         {lo == null ? (
-          "Hardness can't be estimated for this specimen."
+          t.none
         ) : (
           <>
-            Typical hardness: <span className="font-mono text-mineral-300">{lo === hi ? lo : `${lo} – ${hi}`}</span> on the Mohs
-            scale. For reference, a fingernail is ~2.5, a copper coin ~3.5, steel ~5.5 and glass ~5.5–6.
+            {t.typical} <span className="font-mono text-mineral-300">{lo === hi ? n(lo) : `${n(lo)} – ${n(hi!)}`}</span> {t.scaleNote}
           </>
         )}
       </p>

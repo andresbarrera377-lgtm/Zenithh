@@ -20,3 +20,13 @@ describe("formatMa / formatMaRange", () => {
     expect(formatMaRange(66, null)).toBe("≈ 66 Ma");
   });
 });
+
+describe("Spanish formatting", () => {
+  it("uses Spanish words and number formats", () => {
+    expect(formatMa(0, "es")).toBe("actualidad");
+    expect(formatMaRange(0, 525, "es")).toBe("525 Ma – actualidad");
+    expect(formatMa(0.3, "es")).toBe("300 mil años");
+    expect(formatMa(2.58, "es")).toBe("2,6 Ma");
+  });
+});
+

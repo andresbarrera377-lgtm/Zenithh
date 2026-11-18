@@ -8,6 +8,7 @@
  * Imported by the Next.js routes and by netlify/functions/analyze-background.mts, so it uses
  * relative imports and nothing Next.js-specific.
  */
+import type { Locale } from "../i18n/config";
 import { getStore } from "@netlify/blobs";
 import type { AnalyzeResponse, FieldContext } from "../analysis/schema";
 import type { AllowedMediaType } from "./image-validation";
@@ -22,6 +23,7 @@ export interface QueuedJob {
   imageBase64: string;
   mediaType: AllowedMediaType;
   context?: FieldContext;
+  lang?: Locale;
 }
 
 interface ProcessingJob {

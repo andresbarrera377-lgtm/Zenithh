@@ -28,7 +28,7 @@ async function analyzeBackground(request: Request): Promise<void> {
   if (!job) return;
 
   const { body } = await runAnalysis(
-    { imageBase64: job.imageBase64, mediaType: job.mediaType, context: job.context },
+    { imageBase64: job.imageBase64, mediaType: job.mediaType, context: job.context, lang: job.lang },
     jobId,
     job.createdAt,
   );

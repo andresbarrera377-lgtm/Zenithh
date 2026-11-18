@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { requestAnalysis } from "@/lib/analysis/client";
+import { useLocale } from "@/lib/i18n/client";
 import type { AnalysisMeta, AnalyzeResponse, FieldContext, RockAnalysis } from "@/lib/analysis/schema";
 import type { ProcessedImage } from "@/lib/image/process-image";
 
@@ -86,6 +87,7 @@ export function ScanSessionProvider({ children }: { children: ReactNode }) {
     setStatus("idle");
   }, []);
 
+  const lang = useLocale();
   const startAnalysis = useCallback(() => {
     if (!image) return;
     abortRef.current?.abort();
@@ -96,7 +98,7 @@ export function ScanSessionProvider({ children }: { children: ReactNode }) {
     setResult(null);
     setSavedId(null);
 
-    requestAnalysis(image.blob, context, controller.signal)
+    requestAnalysis(image.blob, context, controller.signal, lang)
       .then((response) => {
         if (controller.signal.aborted) return;
         if (response.ok) {
@@ -113,7 +115,7 @@ export function ScanSessionProvider({ children }: { children: ReactNode }) {
         setError({ code: "UNKNOWN", message: "Something went wrong during the analysis. Please try again." });
         setStatus("error");
       });
-  }, [image, context]);
+  }, [image, context, lang]);
 
   const cancelAnalysis = useCallback(() => {
     abortRef.current?.abort();

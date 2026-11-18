@@ -1,3 +1,4 @@
+import type { Locale } from "../i18n/config";
 import type { FieldContext } from "../analysis/schema";
 import { WIRE_JSON_SCHEMA } from "../analysis/wire";
 
@@ -34,7 +35,7 @@ Principles:
 
 10. If the photo shows something that is not a rock, mineral or fossil (a person, animal, object or screenshot), set showsRockOrFossil to false and the verdict to insufficient_image, and describe the subject only briefly. Never identify people.
 
-11. Style: write for curious non-specialists in clear, precise English. Define technical terms briefly. No hype, no invented localities or statistics. didYouKnow must contain 3–5 accurate, specific facts about this rock or fossil. verificationSteps must be practical and safe.`;
+11. Style: write for curious non-specialists in clear, precise prose, in the report language named in the user message (English if none is named). JSON keys and enum values always stay exactly as specified, in English; only free-text values are written in the report language. Define technical terms briefly. No hype, no invented localities or statistics. didYouKnow must contain 3–5 accurate, specific facts about this rock or fossil. verificationSteps must be practical and safe.`;
 
 function sanitize(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -53,7 +54,9 @@ ${WIRE_JSON_SCHEMA}
 /** Full system prompt: principles + output contract. Static, so it is identical on every request. */
 export const ANALYSIS_SYSTEM_PROMPT = `${SYSTEM_PROMPT}\n\n${OUTPUT_CONTRACT}`;
 
-export function buildUserPrompt(context: FieldContext | undefined): string {
+const LANGUAGE_NAMES: Record<Locale, string> = { en: "English", es: "Spanish (español)" };
+
+export function buildUserPrompt(context: FieldContext | undefined, lang: Locale = "en"): string {
   const location = sanitize(context?.location);
   const size = sanitize(context?.size);
   const notes = sanitize(context?.notes);
@@ -66,6 +69,8 @@ export function buildUserPrompt(context: FieldContext | undefined): string {
   const fieldNotes = lines.length > 0 ? lines.join("\n") : "(none provided)";
 
   return `Analyze the specimen in this photo and produce the full Dr.Rock report.
+
+Report language: ${LANGUAGE_NAMES[lang]}. Write every free-text value in ${LANGUAGE_NAMES[lang]}, including rock, mineral, period and place names as they are normally written in that language. Keep JSON keys and enum values in English.
 
 <field_notes>
 ${fieldNotes}

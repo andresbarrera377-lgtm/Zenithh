@@ -1,6 +1,7 @@
 import { runAnalysis } from "@/lib/ai/analyze-rock";
 import { getAiConfig } from "@/lib/ai/config";
 import { FieldContextSchema, type AnalysisErrorCode, type AnalyzeResponse, type FieldContext } from "@/lib/analysis/schema";
+import { LOCALE_COOKIE, isLocale, pickLocale, type Locale } from "@/lib/i18n/config";
 import { createJob } from "@/lib/server/analysis-jobs";
 import { MAX_IMAGE_BYTES, validateImageBytes } from "@/lib/server/image-validation";
 import { clientKeyFromHeaders, createRateLimiter } from "@/lib/server/rate-limit";
@@ -129,14 +130,19 @@ export async function POST(request: Request): Promise<Response> {
     context = parsed.data;
   }
 
+  const rawLang = form.get("lang");
+  const lang: Locale = isLocale(rawLang)
+    ? rawLang
+    : pickLocale(readCookie(request.headers.get("cookie"), LOCALE_COOKIE), request.headers.get("accept-language"));
+
   const imageBase64 = Buffer.from(bytes).toString("base64");
 
   if (getAiConfig().jobMode === "netlify-background") {
-    return startBackgroundJob(request, requestId, { imageBase64, mediaType: validation.mediaType, context });
+    return startBackgroundJob(request, requestId, { imageBase64, mediaType: validation.mediaType, context, lang });
   }
 
   const { status, body: result } = await runAnalysis(
-    { imageBase64, mediaType: validation.mediaType, context, signal: request.signal },
+    { imageBase64, mediaType: validation.mediaType, context, lang, signal: request.signal },
     requestId,
     startedAt,
   );
@@ -152,7 +158,7 @@ export async function POST(request: Request): Promise<Response> {
 async function startBackgroundJob(
   request: Request,
   jobId: string,
-  job: { imageBase64: string; mediaType: Parameters<typeof createJob>[1]["mediaType"]; context?: FieldContext },
+  job: { imageBase64: string; mediaType: Parameters<typeof createJob>[1]["mediaType"]; context?: FieldContext; lang: Locale },
 ): Promise<Response> {
   const token = createId();
   try {
@@ -170,4 +176,12 @@ async function startBackgroundJob(
     return errorResponse(503, "AI_UNAVAILABLE", "The analysis service could not start. Please try again in a moment.");
   }
   return Response.json({ pending: true, jobId, pollAfterMs: 2500 }, { status: 202, headers: { "Cache-Control": "no-store" } });
+}
+
+function readCookie(header: string | null, name: string): string | undefined {
+  for (const part of (header ?? "").split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(rest.join("="));
+  }
+  return undefined;
 }

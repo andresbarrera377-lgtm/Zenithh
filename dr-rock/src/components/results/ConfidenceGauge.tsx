@@ -1,4 +1,7 @@
+"use client";
+
 import { confidenceLevel } from "@/lib/analysis/presentation";
+import { useMessages } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 const strokeByTone = {
@@ -12,7 +15,7 @@ const strokeByTone = {
 /** Radial gauge for the model's self-assessed confidence (0–100). */
 export function ConfidenceGauge({
   value,
-  label = "Confidence",
+  label,
   size = 132,
   className,
 }: {
@@ -22,6 +25,7 @@ export function ConfidenceGauge({
   className?: string;
 }) {
   const level = confidenceLevel(value);
+  const t = useMessages("report");
   const r = 52;
   const circumference = 2 * Math.PI * r;
   const arc = 0.75; // 270° gauge
@@ -43,12 +47,12 @@ export function ConfidenceGauge({
           strokeDasharray={`${filled} ${circumference}`}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} aria-label={label}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} aria-label={label ?? t.summary.confidence}>
         <span className="font-display text-3xl font-semibold tabular-nums text-chalk-50">
           {value}
           <span className="text-base text-granite-400">%</span>
         </span>
-        <span className="label-mono mt-0.5 text-granite-400">{level.label}</span>
+        <span className="label-mono mt-0.5 text-granite-400">{t.levels[level.key]}</span>
       </div>
     </div>
   );

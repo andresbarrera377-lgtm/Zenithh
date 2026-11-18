@@ -1,11 +1,14 @@
 import { FossilArt } from "@/components/art/FossilArt";
+import { MESSAGES } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 
 /**
  * Decorative hero visual: an ammonite in its rock matrix under the Dr.Rock scanner HUD.
  * Purely illustrative — it shows no measurement values.
  */
-export function HeroSpecimen({ className, label = "Fossil pattern search" }: { className?: string; label?: string }) {
+export function HeroSpecimen({ className, lang }: { className?: string; lang: Locale }) {
+  const t = MESSAGES[lang].common.heroArt;
   const corner = "absolute h-10 w-10 border-mineral-300/90";
   return (
     <div className={cn("relative overflow-hidden rounded-[2rem] bg-carbon-900 ring-1 ring-granite-700/80", className)}>
@@ -15,7 +18,7 @@ export function HeroSpecimen({ className, label = "Fossil pattern search" }: { c
         matrix={["#a39a8c", "#4b463f"]}
         fossil={["#e0c093", "#7a5634"]}
         className="absolute inset-0 h-full w-full"
-        title="Illustration of an ammonite fossil in rock"
+        title={t.title}
       />
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-grid-fine opacity-40" />
@@ -31,10 +34,10 @@ export function HeroSpecimen({ className, label = "Fossil pattern search" }: { c
         </div>
         <div className="absolute left-1/2 top-[49%] h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-mineral-300/60 animate-spin-slow" />
         <div className="label-mono absolute left-7 top-7 rounded bg-carbon-950/70 px-2 py-1 text-mineral-300 backdrop-blur">
-          Dr.Rock · Visual analysis
+          {t.hud}
         </div>
         <div className="label-mono absolute bottom-7 left-7 rounded bg-carbon-950/70 px-2 py-1 text-mineral-300 backdrop-blur">
-          <span className="animate-blink">▮</span> {label}
+          <span className="animate-blink">▮</span> {t.label}
         </div>
       </div>
     </div>

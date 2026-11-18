@@ -23,9 +23,25 @@ export interface ProcessedImage {
   height: number;
 }
 
+export type ImageErrorCode =
+  | "noCanvas"
+  | "encode"
+  | "tooHeavy"
+  | "empty"
+  | "tooSmall"
+  | "notImage"
+  | "tooLarge"
+  | "heic"
+  | "unreadable"
+  | "cameraNotReady";
+
+/** Image problem the user can act on; `code` selects the translated message in the UI. */
 export class ImageProcessingError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(
+    public readonly code: ImageErrorCode,
+    public readonly params: { width?: number; height?: number; min?: number } = {},
+  ) {
+    super(`Image processing failed: ${code}`);
     this.name = "ImageProcessingError";
   }
 }
@@ -71,7 +87,7 @@ function renderScaled(source: Drawable, maxEdge: number): HTMLCanvasElement {
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new ImageProcessingError("Your browser could not process this image.");
+  if (!ctx) throw new ImageProcessingError("noCanvas");
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(source, 0, 0, w, h);
@@ -81,7 +97,7 @@ function renderScaled(source: Drawable, maxEdge: number): HTMLCanvasElement {
 function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new ImageProcessingError("Could not encode the image."))),
+      (blob) => (blob ? resolve(blob) : reject(new ImageProcessingError("encode"))),
       "image/jpeg",
       quality,
     );
@@ -93,16 +109,14 @@ async function encodeForAnalysis(canvas: HTMLCanvasElement): Promise<Blob> {
     const blob = await canvasToJpeg(canvas, quality);
     if (blob.size <= TARGET_MAX_BYTES) return blob;
   }
-  throw new ImageProcessingError("The image could not be compressed enough. Try a smaller photo.");
+  throw new ImageProcessingError("tooHeavy");
 }
 
 async function processDrawable(source: Drawable): Promise<ProcessedImage> {
   const { width, height } = sourceSize(source);
-  if (!width || !height) throw new ImageProcessingError("The image appears to be empty.");
+  if (!width || !height) throw new ImageProcessingError("empty");
   if (Math.min(width, height) < MIN_DIMENSION) {
-    throw new ImageProcessingError(
-      `This image is too small (${width}×${height}px). Use a photo at least ${MIN_DIMENSION}px on each side.`,
-    );
+    throw new ImageProcessingError("tooSmall", { width, height, min: MIN_DIMENSION });
   }
   const analysisCanvas = renderScaled(source, ANALYSIS_MAX_EDGE);
   const blob = await encodeForAnalysis(analysisCanvas);
@@ -113,9 +127,9 @@ async function processDrawable(source: Drawable): Promise<ProcessedImage> {
 /** Validates and prepares an image chosen from the gallery / file system. */
 export async function processImageFile(file: File): Promise<ProcessedImage> {
   const looksLikeImage = file.type.startsWith("image/") || isHeic(file) || file.type === "";
-  if (!looksLikeImage) throw new ImageProcessingError("That file is not an image. Please choose a photo.");
+  if (!looksLikeImage) throw new ImageProcessingError("notImage");
   if (file.size > MAX_INPUT_BYTES) {
-    throw new ImageProcessingError("This photo is larger than 25 MB. Please choose a smaller image.");
+    throw new ImageProcessingError("tooLarge");
   }
 
   let source: Drawable;
@@ -123,11 +137,9 @@ export async function processImageFile(file: File): Promise<ProcessedImage> {
     source = await decodeImage(file);
   } catch {
     if (isHeic(file)) {
-      throw new ImageProcessingError(
-        "This browser can't read HEIC photos. Use Safari, or set your camera to “Most Compatible” (JPG) and try again.",
-      );
+      throw new ImageProcessingError("heic");
     }
-    throw new ImageProcessingError("This image could not be read. Please use a JPG, PNG or WebP photo.");
+    throw new ImageProcessingError("unreadable");
   }
 
   try {
@@ -139,6 +151,6 @@ export async function processImageFile(file: File): Promise<ProcessedImage> {
 
 /** Grabs the current frame of a live camera stream. */
 export async function captureVideoFrame(video: HTMLVideoElement): Promise<ProcessedImage> {
-  if (!video.videoWidth) throw new ImageProcessingError("The camera is not ready yet.");
+  if (!video.videoWidth) throw new ImageProcessingError("cameraNotReady");
   return processDrawable(video);
 }

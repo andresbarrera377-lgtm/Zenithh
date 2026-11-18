@@ -8,49 +8,64 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-const dateFormatter = new Intl.DateTimeFormat("en", {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-});
+type Lang = "es" | "en";
+const INTL: Record<Lang, string> = { es: "es-ES", en: "en-GB" };
 
-const dateTimeFormatter = new Intl.DateTimeFormat("en", {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-export function formatDate(iso: string): string {
-  return dateFormatter.format(new Date(iso));
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+function formatter(lang: Lang, withTime: boolean): Intl.DateTimeFormat {
+  const key = `${lang}:${withTime}`;
+  let f = dateFormatters.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(INTL[lang], {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
+    });
+    dateFormatters.set(key, f);
+  }
+  return f;
 }
 
-export function formatDateTime(iso: string): string {
-  return dateTimeFormatter.format(new Date(iso));
+export function formatDate(iso: string, lang: Lang = "en"): string {
+  return formatter(lang, false).format(new Date(iso));
+}
+
+export function formatDateTime(iso: string, lang: Lang = "en"): string {
+  return formatter(lang, true).format(new Date(iso));
+}
+
+const MA_WORDS: Record<Lang, { present: string; years: string; thousand: string }> = {
+  es: { present: "actualidad", years: "años", thousand: "mil años" },
+  en: { present: "present", years: "years", thousand: "thousand years" },
+};
+
+function num(value: number, lang: Lang): string {
+  return value.toLocaleString(lang === "es" ? "es-ES" : "en", { useGrouping: true });
 }
 
 /** Formats millions of years: 0 → "present", 0.005 → "5,000 years", 0.3 → "300 thousand years", 4.5 → "4.5 Ma", 1200 → "1,200 Ma". */
-export function formatMa(value: number): string {
-  if (value <= 0) return "present";
-  if (value < 0.01) return `${Math.round(value * 1_000_000).toLocaleString("en")} years`;
-  if (value < 1) return `${Math.round(value * 1000).toLocaleString("en")} thousand years`;
-  if (value < 10) return `${Number(value.toFixed(1)).toLocaleString("en")} Ma`;
-  return `${Math.round(value).toLocaleString("en")} Ma`;
+export function formatMa(value: number, lang: Lang = "en"): string {
+  const w = MA_WORDS[lang];
+  if (value <= 0) return w.present;
+  if (value < 0.01) return `${num(Math.round(value * 1_000_000), lang)} ${w.years}`;
+  if (value < 1) return `${num(Math.round(value * 1000), lang)} ${w.thousand}`;
+  if (value < 10) return `${num(Number(value.toFixed(1)), lang)} Ma`;
+  return `${num(Math.round(value), lang)} Ma`;
 }
 
-export function formatMaRange(min: number | null, max: number | null): string | null {
+export function formatMaRange(min: number | null, max: number | null, lang: Lang = "en"): string | null {
   if (min == null && max == null) return null;
   if (min != null && max != null) {
-    if (Math.abs(max - min) < 1e-9) return `≈ ${formatMa(min)}`;
+    if (Math.abs(max - min) < 1e-9) return `≈ ${formatMa(min, lang)}`;
     const younger = Math.min(min, max);
     const older = Math.max(min, max);
     // Geological convention: oldest first, e.g. "485 – 299 Ma" or "525 Ma – present".
-    if (younger >= 10) return `${Math.round(older).toLocaleString("en")} – ${Math.round(younger).toLocaleString("en")} Ma`;
-    return `${formatMa(older)} – ${formatMa(younger)}`;
+    if (younger >= 10) return `${num(Math.round(older), lang)} – ${num(Math.round(younger), lang)} Ma`;
+    return `${formatMa(older, lang)} – ${formatMa(younger, lang)}`;
   }
   const only = (min ?? max) as number;
-  return `≈ ${formatMa(only)}`;
+  return `≈ ${formatMa(only, lang)}`;
 }
 
 /** Small deterministic PRNG (mulberry32) so procedural art is identical on server and client. */

@@ -137,6 +137,26 @@ describe("POST /api/analyze", () => {
     expect(sent.fallbacks).toBe("default");
   });
 
+  it("asks for the report in the language the app sends", async () => {
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    form.append("lang", "es");
+    expect((await post(form)).status).toBe(200);
+    const sent = lastRequestBody as { messages: Array<{ content: Array<{ text?: string }> }> };
+    expect(sent.messages[0].content[1].text).toContain("Report language: Spanish");
+  });
+
+  it("falls back to the default language (Spanish) for an unknown one with no other hint", async () => {
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    form.append("lang", "xx");
+    expect((await post(form)).status).toBe(200);
+    const sent = lastRequestBody as { messages: Array<{ content: Array<{ text?: string }> }> };
+    expect(sent.messages[0].content[1].text).toContain("Report language: Spanish");
+  });
+
   it("refuses to answer when no API key is configured (never fabricates)", async () => {
     delete process.env.ANTHROPIC_API_KEY;
     const form = new FormData();

@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { LIBRARY, getEntry, searchLibrary, specimenOfTheDay } from "./index";
+import { LIBRARY, LIBRARY_TEXT_ES, getEntry, getLibrary, getRelated, libraryImage, searchLibrary, specimenOfTheDay } from "./index";
 import { PERIODS } from "./timescale";
-import { LIBRARY_CATEGORIES } from "./types";
+import { CATEGORY_META, LIBRARY_CATEGORIES } from "./types";
 
 describe("Rock Library data", () => {
   it("has unique ids and valid related links", () => {
@@ -48,5 +48,51 @@ describe("specimenOfTheDay", () => {
     const d = new Date("2026-11-17T12:00:00Z");
     expect(specimenOfTheDay(d).id).toBe(specimenOfTheDay(d).id);
     expect(["period", "era"]).not.toContain(specimenOfTheDay(d).category);
+  });
+});
+
+describe("Spanish library", () => {
+  it("translates every entry with the same structure as the English one", () => {
+    expect(Object.keys(LIBRARY_TEXT_ES).sort()).toEqual(LIBRARY.map((e) => e.id).sort());
+    for (const en of LIBRARY) {
+      const es = LIBRARY_TEXT_ES[en.id];
+      expect(es.facts.length, en.id).toBe(en.facts.length);
+      expect(es.properties.length, en.id).toBe(en.properties.length);
+      expect(Boolean(es.aka), en.id).toBe(Boolean(en.aka));
+      expect(es.tags.length, en.id).toBeGreaterThan(0);
+      for (const field of ["name", "summary", "description", "formation", "age"] as const) {
+        expect(es[field].trim().length, `${en.id}.${field}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("keeps ids, categories, art and links identical across languages", () => {
+    const es = getLibrary("es");
+    expect(es.map((e) => [e.id, e.category, e.art, e.related])).toEqual(LIBRARY.map((e) => [e.id, e.category, e.art, e.related]));
+    expect(getEntry("granite", "es")?.name).toBe("Granito");
+    expect(getRelated(getEntry("trilobite", "es")!, "es").every((r) => getEntry(r.id, "es") === r)).toBe(true);
+  });
+
+  it("has Spanish category labels for every category", () => {
+    for (const c of LIBRARY_CATEGORIES) expect(CATEGORY_META.es[c].plural).not.toBe(CATEGORY_META.en[c].plural);
+  });
+
+  it("finds entries by their Spanish or English name", () => {
+    expect(searchLibrary("granito", "all", "es")[0].id).toBe("granite");
+    expect(searchLibrary("granite", "all", "es")[0].id).toBe("granite");
+    expect(searchLibrary("jurasico", "all", "es").some((e) => e.id === "jurassic")).toBe(true);
+  });
+
+  it("has a pre-rendered Spanish illustration for every time unit", () => {
+    for (const e of LIBRARY.filter((x) => x.art.kind === "time")) {
+      expect(libraryImage(e, "es")).toBe(`/library/${e.id}.es.svg`);
+      expect(existsSync(path.join(process.cwd(), "public", libraryImage(e, "es"))), e.id).toBe(true);
+    }
+    expect(libraryImage(getEntry("granite")!, "es")).toBe("/library/granite.svg");
+  });
+
+  it("picks the same specimen of the day in both languages", () => {
+    const d = new Date("2026-11-18T12:00:00Z");
+    expect(specimenOfTheDay(d, "es").id).toBe(specimenOfTheDay(d, "en").id);
   });
 });

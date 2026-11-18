@@ -1,3 +1,4 @@
+import type { Locale } from "../i18n/config";
 import type { AnalyzeResponse, FieldContext } from "./schema";
 
 /** Upper bound for a single analysis request from the browser. */
@@ -61,6 +62,8 @@ export async function requestAnalysis(
   image: Blob,
   context: FieldContext | undefined,
   signal?: AbortSignal,
+  /** Language the AI writes the report in. */
+  lang?: Locale,
 ): Promise<AnalyzeResponse> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return failure("OFFLINE", "You appear to be offline. Connect to the internet to analyze a rock.");
@@ -70,6 +73,7 @@ export async function requestAnalysis(
   form.append("image", image, "specimen.jpg");
   const cleaned = cleanContext(context);
   if (cleaned) form.append("context", JSON.stringify(cleaned));
+  if (lang) form.append("lang", lang);
 
   // Combine the caller's cancel signal with a timeout manually: AbortSignal.any/timeout are
   // missing in Safari before 17.4, and using them there made the analysis hang forever.

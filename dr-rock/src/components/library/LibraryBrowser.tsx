@@ -4,6 +4,7 @@ import { Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/primitives";
+import { useLocale, useMessages } from "@/lib/i18n/client";
 import { countByCategory, searchLibrary } from "@/lib/library";
 import { CATEGORY_META, LIBRARY_CATEGORIES, type LibraryCategory } from "@/lib/library/types";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,9 @@ function isCategory(value: string | null): value is LibraryCategory {
 
 export function LibraryBrowser() {
   const router = useRouter();
+  const lang = useLocale();
+  const t = useMessages("library").browser;
+  const meta = CATEGORY_META[lang];
   const pathname = usePathname();
   const params = useSearchParams();
   const initialCategory = params.get("category");
@@ -24,7 +28,7 @@ export function LibraryBrowser() {
   const [category, setCategory] = useState<Filter>(isCategory(initialCategory) ? initialCategory : "all");
   const deferredQuery = useDeferredValue(query);
   const counts = useMemo(() => countByCategory(), []);
-  const results = useMemo(() => searchLibrary(deferredQuery, category), [deferredQuery, category]);
+  const results = useMemo(() => searchLibrary(deferredQuery, category, lang), [deferredQuery, category, lang]);
 
   function syncUrl(nextCategory: Filter, nextQuery: string) {
     const sp = new URLSearchParams();
@@ -47,14 +51,14 @@ export function LibraryBrowser() {
     <div className="space-y-8">
       <div className="space-y-4">
         <label className="relative block">
-          <span className="sr-only">Search the Rock Library</span>
+          <span className="sr-only">{t.searchLabel}</span>
           <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-granite-400" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onBlur={() => syncUrl(category, query)}
-            placeholder="Search rocks, fossils, minerals, periods…"
+            placeholder={t.searchPlaceholder}
             className="h-14 w-full rounded-2xl border-0 bg-granite-900 pl-12 pr-12 text-[15px] text-chalk-50 ring-1 ring-inset ring-granite-600/70 placeholder:text-granite-500 focus:outline-none focus:ring-2 focus:ring-mineral-400"
           />
           {query && (
@@ -65,22 +69,22 @@ export function LibraryBrowser() {
                 syncUrl(category, "");
               }}
               className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-granite-400 hover:bg-granite-800 hover:text-chalk-50"
-              aria-label="Clear search"
+              aria-label={t.clear}
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </label>
 
-        <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" role="tablist" aria-label="Filter by category">
+        <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" role="tablist" aria-label={t.filterLabel}>
           <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
-            <FilterChip active={category === "all"} onClick={() => selectCategory("all")} label="All" count={total} />
+            <FilterChip active={category === "all"} onClick={() => selectCategory("all")} label={t.all} count={total} />
             {LIBRARY_CATEGORIES.map((c) => (
               <FilterChip
                 key={c}
                 active={category === c}
                 onClick={() => selectCategory(c)}
-                label={CATEGORY_META[c].plural}
+                label={meta[c].plural}
                 count={counts[c]}
               />
             ))}
@@ -91,8 +95,8 @@ export function LibraryBrowser() {
       {results.length === 0 ? (
         <EmptyState
           icon={<Search className="h-6 w-6" />}
-          title="No matches"
-          description={`Nothing in the library matches “${deferredQuery}”. Try another word, like “volcanic”, “Jurassic” or “shell”.`}
+          title={t.noMatches}
+          description={t.noMatchesText(deferredQuery)}
         />
       ) : grouped ? (
         <div className="space-y-12">
@@ -102,23 +106,23 @@ export function LibraryBrowser() {
               <section key={c} aria-labelledby={`cat-${c}`} className="space-y-4">
                 <div className="flex flex-wrap items-end justify-between gap-2 border-b hairline pb-3">
                   <div>
-                    <p className="label-mono text-granite-500">{CATEGORY_META[c].group}</p>
+                    <p className="label-mono text-granite-500">{meta[c].group}</p>
                     <h2 id={`cat-${c}`} className="font-display text-2xl font-semibold text-chalk-50">
-                      {CATEGORY_META[c].plural}
+                      {meta[c].plural}
                     </h2>
-                    <p className="mt-1 text-sm text-granite-400">{CATEGORY_META[c].description}</p>
+                    <p className="mt-1 text-sm text-granite-400">{meta[c].description}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => selectCategory(c)}
                     className="text-sm text-mineral-300 underline-offset-4 hover:underline"
                   >
-                    View {items.length}
+                    {t.viewAll(items.length)}
                   </button>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {items.map((entry) => (
-                    <LibraryCard key={entry.id} entry={entry} />
+                    <LibraryCard key={entry.id} entry={entry} lang={lang} />
                   ))}
                 </div>
               </section>
@@ -128,12 +132,12 @@ export function LibraryBrowser() {
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-granite-400" aria-live="polite">
-            {results.length} {results.length === 1 ? "result" : "results"}
-            {category !== "all" && ` in ${CATEGORY_META[category].plural.toLowerCase()}`}
+            {t.results(results.length)}
+            {category !== "all" && t.inCategory(meta[category].plural)}
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {results.map((entry) => (
-              <LibraryCard key={entry.id} entry={entry} />
+              <LibraryCard key={entry.id} entry={entry} lang={lang} />
             ))}
           </div>
         </div>

@@ -9,24 +9,26 @@ import { EmptyState, Notice } from "@/components/ui/primitives";
 import { saveDiscovery } from "@/lib/collection/store";
 import { useScanSession } from "@/lib/scan/session";
 import { ResultsView } from "./ResultsView";
+import { useMessages } from "@/lib/i18n/client";
 
 export function SessionResults() {
   const router = useRouter();
   const session = useScanSession();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const t = useMessages("report").session;
 
   if (!session.result || !session.image) {
     return (
       <EmptyState
         icon={<ScanLine className="h-6 w-6" />}
-        title="No results yet"
-        description="Analyze a rock to see its scientific report here. Saved analyses live in My Collection."
+        title={t.emptyTitle}
+        description={t.emptyText}
         action={
           <div className="flex flex-wrap justify-center gap-2">
-            <ButtonLink href="/app/scan">Scan a rock</ButtonLink>
+            <ButtonLink href="/app/scan">{t.scan}</ButtonLink>
             <ButtonLink href="/app/collection" variant="secondary">
-              My Collection
+              {t.collection}
             </ButtonLink>
           </div>
         }
@@ -49,8 +51,8 @@ export function SessionResults() {
         context: session.context,
       });
       session.markSaved(saved.id);
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "The analysis could not be saved on this device.");
+    } catch {
+      setSaveError(t.saveError);
     } finally {
       setSaving(false);
     }
@@ -71,26 +73,26 @@ export function SessionResults() {
         <>
           {session.savedId ? (
             <ButtonLink href={`/app/collection/${session.savedId}`} variant="outline" icon={<BookmarkCheck className="h-4 w-4" />}>
-              Saved · open in collection
+              {t.saved}
             </ButtonLink>
           ) : (
             <Button variant="secondary" onClick={save} loading={saving} icon={<BookmarkPlus className="h-4 w-4" />}>
-              Save analysis
+              {t.save}
             </Button>
           )}
           <Button variant="ghost" onClick={analyzeAnother} icon={<ScanLine className="h-4 w-4" />}>
-            Analyze another rock
+            {t.another}
           </Button>
         </>
       }
       footer={
         <>
-          {saveError && <Notice kind="error" title="Could not save">{saveError}</Notice>}
+          {saveError && <Notice kind="error" title={t.couldNotSave}>{saveError}</Notice>}
           {session.savedId && (
             <p className="text-xs text-granite-400">
-              Saved on this device. Add notes and tags in{" "}
+              {t.savedNoteBefore}
               <Link href={`/app/collection/${session.savedId}`} className="text-mineral-300 hover:underline">
-                My Collection
+                {t.savedNoteLink}
               </Link>
               .
             </p>

@@ -1,4 +1,4 @@
-import { EONS_PRECAMBRIAN, ERAS, PERIODS, type TimeUnit } from "@/lib/library/timescale";
+import { EONS_PRECAMBRIAN, ERAS, PERIODS, unitName, type TimeUnit } from "@/lib/library/timescale";
 import { seededRandom } from "@/lib/utils";
 import { Backdrop, H, NoiseFilter, W, bandPath, r1, svgId, type Pt } from "./art-utils";
 
@@ -6,7 +6,18 @@ import { Backdrop, H, NoiseFilter, W, bandPath, r1, svgId, type Pt } from "./art
  * Stylised cliff outcrop: one stratum per geological period (oldest at the bottom),
  * with the selected period or era highlighted.
  */
-export function TimeArt({ unitId, className, title }: { unitId: string; className?: string; title?: string }) {
+export function TimeArt({
+  unitId,
+  className,
+  title,
+  lang = "en",
+}: {
+  unitId: string;
+  className?: string;
+  title?: string;
+  /** Language of the period/era label drawn on the outcrop. */
+  lang?: "es" | "en";
+}) {
   const rng = seededRandom(`time-${unitId}`);
   const layers: TimeUnit[] = [EONS_PRECAMBRIAN, ...PERIODS];
   const era = ERAS.find((e) => e.id === unitId);
@@ -38,7 +49,8 @@ export function TimeArt({ unitId, className, title }: { unitId: string; classNam
   const highlighted = layers.map((u, i) => ({ u, i })).filter(({ u }) => isHighlighted(u));
   const labelIndex = highlighted.length ? highlighted[Math.floor(highlighted.length / 2)].i : -1;
   const labelY = labelIndex >= 0 ? (boundaries[labelIndex][8][1] + boundaries[labelIndex + 1][8][1]) / 2 : 0;
-  const label = era?.name ?? layers[labelIndex]?.name ?? "";
+  const labelUnit = era ?? layers[labelIndex];
+  const label = labelUnit ? unitName(labelUnit, lang) : "";
   const noise = svgId(`time-${unitId}`, "n");
 
   return (
@@ -63,10 +75,10 @@ export function TimeArt({ unitId, className, title }: { unitId: string; classNam
       })}
       <rect x="40" y="20" width="320" height="262" filter={`url(#${noise})`} opacity="0.8" />
       <text x="40" y="16" fill="#8af5c6" fontSize="9" fontFamily="JetBrains Mono Variable, ui-monospace, monospace" letterSpacing="1.5">
-        TODAY
+        {lang === "es" ? "HOY" : "TODAY"}
       </text>
       <text x="40" y="294" fill="#7d8783" fontSize="9" fontFamily="JetBrains Mono Variable, ui-monospace, monospace" letterSpacing="1.5">
-        4,567 MA
+        {lang === "es" ? "4567 MA" : "4,567 MA"}
       </text>
       {labelIndex >= 0 && (
         <g>

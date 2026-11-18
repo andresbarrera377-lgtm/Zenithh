@@ -14,9 +14,8 @@ import {
 } from "lucide-react";
 import { forwardRef, useImperativeHandle, useState, type ReactNode } from "react";
 import { Badge, KeyValue, Notice } from "@/components/ui/primitives";
-import { CLASSIFICATION_META, VERDICT_META } from "@/lib/analysis/presentation";
 import type { AgeEstimate, RockAnalysis } from "@/lib/analysis/schema";
-import { SCIENTIFIC_DISCLAIMER } from "@/lib/site";
+import { useLocale, useMessages } from "@/lib/i18n/client";
 import { cn, formatMaRange } from "@/lib/utils";
 import { EarthLayers } from "./EarthLayers";
 import { GeoTimeBar } from "./GeoTimeBar";
@@ -24,14 +23,14 @@ import { MohsScale } from "./MohsScale";
 import { VerdictBadge } from "./ResultSummary";
 
 const SECTIONS = [
-  { id: "identification", letter: "A", title: "Identification", icon: ScanSearch },
-  { id: "age", letter: "B", title: "Age & history", icon: Hourglass },
-  { id: "setting", letter: "C", title: "Geological setting", icon: Mountain },
-  { id: "composition", letter: "D", title: "Composition", icon: FlaskConical },
-  { id: "facts", letter: "E", title: "Did you know?", icon: Lightbulb },
-  { id: "paleo", letter: "F", title: "Paleontological value", icon: Bone },
-  { id: "photo", letter: "G", title: "Photo quality & how to verify", icon: Camera },
-] as const satisfies ReadonlyArray<{ id: string; letter: string; title: string; icon: LucideIcon }>;
+  { id: "identification", letter: "A", icon: ScanSearch },
+  { id: "age", letter: "B", icon: Hourglass },
+  { id: "setting", letter: "C", icon: Mountain },
+  { id: "composition", letter: "D", icon: FlaskConical },
+  { id: "facts", letter: "E", icon: Lightbulb },
+  { id: "paleo", letter: "F", icon: Bone },
+  { id: "photo", letter: "G", icon: Camera },
+] as const satisfies ReadonlyArray<{ id: string; letter: string; icon: LucideIcon }>;
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
@@ -45,6 +44,8 @@ export const FullReport = forwardRef<FullReportHandle, { analysis: RockAnalysis;
   ref,
 ) {
   const [open, setOpen] = useState<Set<SectionId>>(() => new Set<SectionId>(["identification"]));
+  const t = useMessages("report").full;
+  const common = useMessages("common");
   useImperativeHandle(ref, () => ({ expandAll: () => setOpen(new Set(SECTIONS.map((s) => s.id))) }), []);
 
   const toggle = (id: SectionId, next: boolean) =>
@@ -69,9 +70,9 @@ export const FullReport = forwardRef<FullReportHandle, { analysis: RockAnalysis;
     <section className={cn("space-y-3", className)} aria-labelledby="full-report-title">
       <div className="flex flex-wrap items-end justify-between gap-3 pb-1">
         <div>
-          <p className="label-mono text-mineral-400">Full scientific report</p>
+          <p className="label-mono text-mineral-400">{t.eyebrow}</p>
           <h2 id="full-report-title" className="font-display text-2xl font-semibold text-chalk-50">
-            What science can tell us
+            {t.title}
           </h2>
         </div>
         <button
@@ -79,7 +80,7 @@ export const FullReport = forwardRef<FullReportHandle, { analysis: RockAnalysis;
           onClick={() => setOpen(open.size === SECTIONS.length ? new Set() : new Set(SECTIONS.map((s) => s.id)))}
           className="text-sm text-mineral-300 underline-offset-4 hover:underline"
         >
-          {open.size === SECTIONS.length ? "Collapse all" : "Expand all"}
+          {open.size === SECTIONS.length ? t.collapse : t.expand}
         </button>
       </div>
 
@@ -102,8 +103,8 @@ export const FullReport = forwardRef<FullReportHandle, { analysis: RockAnalysis;
                 <Icon className="h-5 w-5" />
               </span>
               <span className="flex-1">
-                <span className="label-mono block text-granite-400">Section {s.letter}</span>
-                <span className="font-display text-lg font-semibold text-chalk-50">{s.title}</span>
+                <span className="label-mono block text-granite-400">{t.section(s.letter)}</span>
+                <span className="font-display text-lg font-semibold text-chalk-50">{t.sections[s.id]}</span>
               </span>
               <ChevronDown className="h-5 w-5 text-granite-400 transition-transform duration-300 group-open:rotate-180" />
             </summary>
@@ -112,8 +113,8 @@ export const FullReport = forwardRef<FullReportHandle, { analysis: RockAnalysis;
         );
       })}
 
-      <Notice kind="warning" title="Scientific notice">
-        {SCIENTIFIC_DISCLAIMER}
+      <Notice kind="warning" title={t.notice}>
+        {common.disclaimer}
       </Notice>
     </section>
   );
@@ -130,7 +131,8 @@ function Prose({ children }: { children: ReactNode }) {
 }
 
 function Chips({ items }: { items: string[] }) {
-  if (items.length === 0) return <p className="text-sm text-granite-400">Not determined.</p>;
+  const t = useMessages("report").full;
+  if (items.length === 0) return <p className="text-sm text-granite-400">{t.notDetermined}</p>;
   return (
     <ul className="flex flex-wrap gap-2">
       {items.map((item, i) => (
@@ -144,49 +146,40 @@ function Chips({ items }: { items: string[] }) {
 
 function IdentificationSection({ a }: { a: RockAnalysis }) {
   const { identification: id, observations: o } = a;
-  const observationRows: Array<[string, string]> = [
-    ["Texture", o.texture],
-    ["Color", o.color],
-    ["Shape", o.shape],
-    ["Patterns", o.patterns],
-    ["Structures", o.structures],
-    ["Organism impressions", o.organicImpressions],
-    ["Mineral formations", o.mineralFormations],
-    ["Sedimentary features", o.sedimentaryFeatures],
-  ];
+  const report = useMessages("report");
+  const t = report.full;
+  const observationRows = (Object.keys(t.observations) as Array<keyof typeof t.observations>).map(
+    (key) => [t.observations[key], o[key]] as [string, string],
+  );
   return (
     <div className="space-y-8">
       <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <KeyValue label="Probable name" value={id.rockName} />
-        <KeyValue label="Rock type" value={id.rockType} />
-        <KeyValue label="Classification" value={CLASSIFICATION_META[id.classification].label} />
-        <KeyValue label="Possible fossils" value={<VerdictBadge verdict={a.verdict} />} />
-        <KeyValue label="Fossil type" value={id.fossilType ?? "None identified"} />
+        <KeyValue label={t.probableName} value={id.rockName} />
+        <KeyValue label={t.rockType} value={id.rockType} />
+        <KeyValue label={t.classification} value={report.classifications[id.classification].label} />
+        <KeyValue label={t.possibleFossils} value={<VerdictBadge verdict={a.verdict} />} />
+        <KeyValue label={t.fossilType} value={id.fossilType ?? t.noneIdentified} />
         <KeyValue
-          label="Confidence"
-          value={
-            <span className="font-mono text-sm">
-              ID {a.confidence.identification}% · Fossil {a.confidence.fossil}%
-            </span>
-          }
+          label={t.confidence}
+          value={<span className="font-mono text-sm">{t.confidenceValue(a.confidence.identification, a.confidence.fossil)}</span>}
         />
       </dl>
 
       <div>
-        <SubHeading>Why these confidence levels</SubHeading>
+        <SubHeading>{t.whyConfidence}</SubHeading>
         <Prose>{a.confidence.rationale}</Prose>
       </div>
 
       {id.keyFeatures.length > 0 && (
         <div>
-          <SubHeading>Visual features supporting the identification</SubHeading>
+          <SubHeading>{t.featuresTitle}</SubHeading>
           <div className="overflow-hidden rounded-2xl ring-1 ring-granite-700/70">
             <table className="w-full text-left text-sm">
               <thead className="bg-granite-800/70 text-xs text-granite-400">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Feature</th>
-                  <th className="px-4 py-2.5 font-medium">Observed</th>
-                  <th className="hidden px-4 py-2.5 font-medium md:table-cell">Interpretation</th>
+                  <th className="px-4 py-2.5 font-medium">{t.feature}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.observed}</th>
+                  <th className="hidden px-4 py-2.5 font-medium md:table-cell">{t.interpretation}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-granite-700/60">
@@ -207,7 +200,7 @@ function IdentificationSection({ a }: { a: RockAnalysis }) {
       )}
 
       <div>
-        <SubHeading>What the AI observed</SubHeading>
+        <SubHeading>{t.aiObserved}</SubHeading>
         <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
           {observationRows.map(([label, value]) => (
             <KeyValue key={label} label={label} value={<span className="text-sm text-granite-200">{value}</span>} />
@@ -217,7 +210,7 @@ function IdentificationSection({ a }: { a: RockAnalysis }) {
 
       {id.alternatives.length > 0 && (
         <div>
-          <SubHeading>Other possibilities considered</SubHeading>
+          <SubHeading>{t.alternatives}</SubHeading>
           <ul className="space-y-2">
             {id.alternatives.map((alt, i) => (
               <li key={`${i}-${alt.name}`} className="rounded-xl bg-carbon-900/60 p-3 text-sm ring-1 ring-granite-700/60">
@@ -233,7 +226,9 @@ function IdentificationSection({ a }: { a: RockAnalysis }) {
 }
 
 function AgeCard({ title, age, tone, note }: { title: string; age: AgeEstimate; tone: "mineral" | "ochre"; note: string }) {
-  const range = formatMaRange(age.minMa, age.maxMa);
+  const t = useMessages("report").full;
+  const locale = useLocale();
+  const range = formatMaRange(age.minMa, age.maxMa, locale);
   return (
     <div className="space-y-3 rounded-2xl bg-carbon-900/60 p-4 ring-1 ring-granite-700/60">
       <div className="flex items-center justify-between gap-2">
@@ -242,12 +237,12 @@ function AgeCard({ title, age, tone, note }: { title: string; age: AgeEstimate; 
       </div>
       <p className="font-medium text-chalk-50">{age.summary}</p>
       <dl className="grid grid-cols-2 gap-3">
-        <KeyValue label="Period(s)" value={<span className="text-sm">{age.periods.join(", ") || "Undetermined"}</span>} />
-        <KeyValue label="Era" value={<span className="text-sm">{age.era ?? "Undetermined"}</span>} />
+        <KeyValue label={t.periods} value={<span className="text-sm">{age.periods.join(", ") || t.undetermined}</span>} />
+        <KeyValue label={t.era} value={<span className="text-sm">{age.era ?? t.undetermined}</span>} />
         <KeyValue
-          label="Approx. age"
+          label={t.approxAge}
           className="col-span-2"
-          value={<span className="font-mono text-sm text-mineral-300">{range ?? "Cannot be estimated from a photo"}</span>}
+          value={<span className="font-mono text-sm text-mineral-300">{range ?? t.cannotEstimate}</span>}
         />
       </dl>
       <p className="text-sm leading-relaxed text-granite-300">{age.basis}</p>
@@ -258,32 +253,33 @@ function AgeCard({ title, age, tone, note }: { title: string; age: AgeEstimate; 
 
 function AgeSection({ a }: { a: RockAnalysis }) {
   const { rockAge, fossilAge, formationStory, relatedEvents } = a.ageAndHistory;
+  const t = useMessages("report").full;
   return (
     <div className="space-y-8">
       <GeoTimeBar
         ranges={[
-          { label: "Rock", minMa: rockAge.minMa, maxMa: rockAge.maxMa, tone: "mineral" },
-          ...(fossilAge ? [{ label: "Fossil group", minMa: fossilAge.minMa, maxMa: fossilAge.maxMa, tone: "ochre" as const }] : []),
+          { label: t.rockRange, minMa: rockAge.minMa, maxMa: rockAge.maxMa, tone: "mineral" },
+          ...(fossilAge ? [{ label: t.fossilRange, minMa: fossilAge.minMa, maxMa: fossilAge.maxMa, tone: "ochre" as const }] : []),
         ]}
       />
       <div className={cn("grid gap-4", fossilAge && "md:grid-cols-2")}>
-        <AgeCard title="Estimated age of the rock" age={rockAge} tone="mineral" note="Estimated from the typical age of this rock type — a photo cannot date a rock." />
+        <AgeCard title={t.rockAgeTitle} age={rockAge} tone="mineral" note={t.rockAgeNote} />
         {fossilAge && (
           <AgeCard
-            title="Age of the possible fossil group"
+            title={t.fossilAgeTitle}
             age={fossilAge}
             tone="ochre"
-            note="When this group of organisms lived. The rock that holds a fossil can be the same age or reworked later."
+            note={t.fossilAgeNote}
           />
         )}
       </div>
       <div>
-        <SubHeading>How it probably formed</SubHeading>
+        <SubHeading>{t.formation}</SubHeading>
         <Prose>{formationStory}</Prose>
       </div>
       {relatedEvents.length > 0 && (
         <div>
-          <SubHeading>Related geological events</SubHeading>
+          <SubHeading>{t.events}</SubHeading>
           <ul className="grid gap-2 sm:grid-cols-2">
             {relatedEvents.map((e, i) => (
               <li key={`${i}-${e}`} className="flex gap-3 rounded-xl bg-carbon-900/60 p-3 text-sm text-granite-200 ring-1 ring-granite-700/60">
@@ -300,23 +296,24 @@ function AgeSection({ a }: { a: RockAnalysis }) {
 
 function SettingSection({ a }: { a: RockAnalysis }) {
   const g = a.geologicalSetting;
+  const t = useMessages("report").full;
   return (
     <div className="space-y-8">
       <div>
-        <SubHeading>Typical geological environments</SubHeading>
+        <SubHeading>{t.environments}</SubHeading>
         <Chips items={g.environments} />
       </div>
       <dl className="grid gap-6 md:grid-cols-2">
-        <KeyValue label="Layers & strata" value={<Prose>{g.strata}</Prose>} />
-        <KeyValue label="Depth" value={<Prose>{g.depth}</Prose>} />
-        <KeyValue label="Favourable conditions" value={<Prose>{g.favorableConditions}</Prose>} className="md:col-span-2" />
+        <KeyValue label={t.strata} value={<Prose>{g.strata}</Prose>} />
+        <KeyValue label={t.depth} value={<Prose>{g.depth}</Prose>} />
+        <KeyValue label={t.conditions} value={<Prose>{g.favorableConditions}</Prose>} className="md:col-span-2" />
       </dl>
       <div>
-        <SubHeading>Regions with similar specimens</SubHeading>
+        <SubHeading>{t.regions}</SubHeading>
         <Chips items={g.worldRegions} />
       </div>
       <div className="space-y-4 rounded-2xl bg-carbon-900/60 p-4 ring-1 ring-granite-700/60 sm:p-5">
-        <SubHeading>Crust, mantle and core</SubHeading>
+        <SubHeading>{t.layers}</SubHeading>
         <Prose>{g.earthLayers}</Prose>
         <EarthLayers />
       </div>
@@ -326,10 +323,11 @@ function SettingSection({ a }: { a: RockAnalysis }) {
 
 function CompositionSection({ a }: { a: RockAnalysis }) {
   const c = a.composition;
+  const t = useMessages("report").full;
   return (
     <div className="space-y-8">
       <div>
-        <SubHeading>Probable minerals</SubHeading>
+        <SubHeading>{t.minerals}</SubHeading>
         {c.minerals.length ? (
           <ul className="grid gap-2 sm:grid-cols-2">
             {c.minerals.map((m, i) => (
@@ -340,25 +338,25 @@ function CompositionSection({ a }: { a: RockAnalysis }) {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-granite-400">Mineral content could not be estimated.</p>
+          <p className="text-sm text-granite-400">{t.noMinerals}</p>
         )}
       </div>
       <dl className="grid gap-6 md:grid-cols-2">
-        <KeyValue label="Chemical composition" value={<Prose>{c.chemistry}</Prose>} />
-        <KeyValue label="Porosity" value={<Prose>{c.porosity}</Prose>} />
+        <KeyValue label={t.chemistry} value={<Prose>{c.chemistry}</Prose>} />
+        <KeyValue label={t.porosity} value={<Prose>{c.porosity}</Prose>} />
         <KeyValue
-          label="Density"
+          label={t.density}
           value={
             <span className="space-y-1">
-              <span className="block font-mono text-mineral-300">{c.density.value ?? "No reliable value"}</span>
+              <span className="block font-mono text-mineral-300">{c.density.value ?? t.noDensity}</span>
               <span className="block text-sm text-granite-300">{c.density.note}</span>
             </span>
           }
         />
-        <KeyValue label="Strength & physical traits" value={<Prose>{c.physicalProperties}</Prose>} />
+        <KeyValue label={t.physical} value={<Prose>{c.physicalProperties}</Prose>} />
       </dl>
       <div>
-        <SubHeading>Hardness (Mohs scale)</SubHeading>
+        <SubHeading>{t.hardness}</SubHeading>
         <MohsScale min={c.mohsHardness.min} max={c.mohsHardness.max} />
         {c.mohsHardness.note && <p className="mt-2 text-sm text-granite-400">{c.mohsHardness.note}</p>}
       </div>
@@ -367,7 +365,8 @@ function CompositionSection({ a }: { a: RockAnalysis }) {
 }
 
 function FactsSection({ a }: { a: RockAnalysis }) {
-  if (a.didYouKnow.length === 0) return <p className="text-sm text-granite-400">No facts available for this specimen.</p>;
+  const t = useMessages("report").full;
+  if (a.didYouKnow.length === 0) return <p className="text-sm text-granite-400">{t.noFacts}</p>;
   return (
     <ol className="grid gap-3 md:grid-cols-2">
       {a.didYouKnow.map((fact, i) => (
@@ -382,6 +381,8 @@ function FactsSection({ a }: { a: RockAnalysis }) {
 
 function PaleoSection({ a }: { a: RockAnalysis }) {
   const p = a.paleontology;
+  const report = useMessages("report");
+  const t = report.full;
   if (!p.hasFossilIndications) {
     return (
       <div className="space-y-4">
@@ -389,29 +390,28 @@ function PaleoSection({ a }: { a: RockAnalysis }) {
           <VerdictBadge verdict={a.verdict} />
         </div>
         <Prose>
-          {p.noFossilExplanation ??
-            "No fossil indications are visible in this photo. Fossils form almost exclusively in sedimentary rocks; other rock types rarely preserve them."}
+          {p.noFossilExplanation ?? t.noFossilDefault}
         </Prose>
       </div>
     );
   }
   const rows: Array<[string, string | null]> = [
-    ["Possible organism", p.organism],
-    ["Biological group", p.biologicalGroup],
-    ["When it lived", p.periodLived],
-    ["Habitat", p.habitat],
-    ["How it was preserved", p.preservation],
-    ["Scientific importance", p.scientificImportance],
+    [t.paleo.organism, p.organism],
+    [t.paleo.group, p.biologicalGroup],
+    [t.paleo.lived, p.periodLived],
+    [t.paleo.habitat, p.habitat],
+    [t.paleo.preservation, p.preservation],
+    [t.paleo.importance, p.scientificImportance],
   ];
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <VerdictBadge verdict={a.verdict} />
-        <span className="text-sm text-granite-400">{VERDICT_META[a.verdict].description}</span>
+        <span className="text-sm text-granite-400">{report.verdicts[a.verdict].description}</span>
       </div>
       <dl className="grid gap-6 md:grid-cols-2">
         {rows.map(([label, value]) => (
-          <KeyValue key={label} label={label} value={<Prose>{value ?? "Not determinable from this photo."}</Prose>} />
+          <KeyValue key={label} label={label} value={<Prose>{value ?? t.notFromPhoto}</Prose>} />
         ))}
       </dl>
     </div>
@@ -421,18 +421,19 @@ function PaleoSection({ a }: { a: RockAnalysis }) {
 function PhotoSection({ a }: { a: RockAnalysis }) {
   const img = a.imageAssessment;
   const qualityTone = { good: "mineral", fair: "azurite", poor: "ochre", unusable: "jasper" } as const;
+  const t = useMessages("report").full;
   return (
     <div className="space-y-8">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={qualityTone[img.quality]}>Photo quality: {img.quality}</Badge>
-          {!img.showsRockOrFossil && <Badge tone="jasper">No rock detected</Badge>}
+          <Badge tone={qualityTone[img.quality]}>{t.quality(t.qualities[img.quality])}</Badge>
+          {!img.showsRockOrFossil && <Badge tone="jasper">{t.noRock}</Badge>}
         </div>
         <Prose>{img.subjectDescription}</Prose>
       </div>
       <div className="grid gap-6 md:grid-cols-2">
         <div>
-          <SubHeading>Limitations of this photo</SubHeading>
+          <SubHeading>{t.limitations}</SubHeading>
           {img.issues.length ? (
             <ul className="space-y-2 text-sm text-granite-200">
               {img.issues.map((issue, i) => (
@@ -443,16 +444,16 @@ function PhotoSection({ a }: { a: RockAnalysis }) {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-granite-400">No significant issues detected.</p>
+            <p className="text-sm text-granite-400">{t.noIssues}</p>
           )}
         </div>
         <div>
-          <SubHeading>Tips for a better photo</SubHeading>
+          <SubHeading>{t.betterPhoto}</SubHeading>
           <ul className="space-y-2 text-sm text-granite-200">
-            {img.photoTips.map((t, i) => (
-              <li key={`${i}-${t}`} className="flex gap-2">
+            {img.photoTips.map((tip, i) => (
+              <li key={`${i}-${tip}`} className="flex gap-2">
                 <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-mineral-400" aria-hidden />
-                {t}
+                {tip}
               </li>
             ))}
           </ul>
@@ -460,7 +461,7 @@ function PhotoSection({ a }: { a: RockAnalysis }) {
       </div>
       {a.verificationSteps.length > 0 && (
         <div>
-          <SubHeading>How to confirm the identification</SubHeading>
+          <SubHeading>{t.verify}</SubHeading>
           <ol className="space-y-2">
             {a.verificationSteps.map((step, i) => (
               <li key={`${i}-${step}`} className="flex gap-3 rounded-xl bg-carbon-900/60 p-3 text-sm text-granite-200 ring-1 ring-granite-700/60">

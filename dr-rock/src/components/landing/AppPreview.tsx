@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 import { FossilArt } from "@/components/art/FossilArt";
 import { LogoMark } from "@/components/brand/Logo";
 import { ResultSummary } from "@/components/results/ResultSummary";
-import { EXAMPLE_ANALYSIS } from "@/lib/analysis/example";
-import { LIBRARY, getEntry } from "@/lib/library";
+import { exampleAnalysis } from "@/lib/analysis/example";
+import type { Locale } from "@/lib/i18n/config";
+import { getLocale, getMessages } from "@/lib/i18n/server";
+import { LIBRARY, getEntry, libraryImage } from "@/lib/library";
 import { CATEGORY_META } from "@/lib/library/types";
 import { cn } from "@/lib/utils";
 
@@ -56,11 +58,13 @@ function ScreenHeader({ title, eyebrow }: { title: string; eyebrow: string }) {
   );
 }
 
-function ScanScreen() {
+type PreviewText = ReturnType<typeof getMessages>["landing"]["preview"];
+
+function ScanScreen({ t }: { t: PreviewText }) {
   const corner = "absolute h-7 w-7 border-mineral-300";
   return (
     <div>
-      <ScreenHeader eyebrow="Step 2 · Analysis" title="Analyzing specimen" />
+      <ScreenHeader eyebrow={t.step} title={t.analyzing} />
       <div className="relative mx-4 aspect-[3/4] overflow-hidden rounded-3xl ring-1 ring-granite-700">
         <FossilArt
           seed="preview-trilobite"
@@ -82,7 +86,7 @@ function ScanScreen() {
         </div>
       </div>
       <div className="space-y-3 px-4 pt-5 text-center">
-        <p className="font-display text-lg font-semibold text-chalk-50">Searching for fossil patterns…</p>
+        <p className="font-display text-lg font-semibold text-chalk-50">{t.searching}</p>
         <div className="mx-auto h-1 w-40 overflow-hidden rounded-full bg-granite-800">
           <div className="h-full w-1/3 animate-indeterminate rounded-full bg-mineral-400" />
         </div>
@@ -91,11 +95,11 @@ function ScanScreen() {
   );
 }
 
-function ResultsScreen() {
+function ResultsScreen({ lang }: { lang: Locale }) {
   return (
     <div className="px-3">
       <ResultSummary
-        analysis={EXAMPLE_ANALYSIS}
+        analysis={exampleAnalysis(lang)}
         media={
           <FossilArt
             seed="preview-brachiopod"
@@ -110,23 +114,23 @@ function ResultsScreen() {
   );
 }
 
-function LibraryScreen() {
+function LibraryScreen({ lang, t }: { lang: Locale; t: PreviewText }) {
   const ids = ["ammonite", "granite", "quartz", "trilobite", "amber", "jurassic"];
   return (
     <div>
-      <ScreenHeader eyebrow="Encyclopedia" title="Rock Library" />
+      <ScreenHeader eyebrow={t.encyclopedia} title={t.library} />
       <div className="mx-4 mb-3 flex h-10 items-center gap-2 rounded-xl bg-granite-900 px-3 text-xs text-granite-500 ring-1 ring-granite-700">
-        <Search className="h-3.5 w-3.5" /> Search rocks, fossils…
+        <Search className="h-3.5 w-3.5" /> {t.searchPlaceholder}
       </div>
       <div className="grid grid-cols-2 gap-2.5 px-4">
         {ids.map((id) => {
-          const e = getEntry(id)!;
+          const e = getEntry(id, lang)!;
           return (
             <div key={id} className="overflow-hidden rounded-xl bg-granite-900 ring-1 ring-granite-700/70">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/library/${id}.svg`} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />
+              <img src={libraryImage(e, lang)} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />
               <div className="p-2">
-                <p className="text-[9px] uppercase tracking-wider text-mineral-400">{CATEGORY_META[e.category].label}</p>
+                <p className="text-[9px] uppercase tracking-wider text-mineral-400">{CATEGORY_META[lang][e.category].label}</p>
                 <p className="font-display text-xs font-semibold text-chalk-50">{e.name}</p>
               </div>
             </div>
@@ -137,18 +141,20 @@ function LibraryScreen() {
   );
 }
 
-export function AppPreview() {
+export async function AppPreview() {
+  const lang = await getLocale();
+  const t = getMessages(lang).landing.preview;
   return (
     <div className="-mx-4 overflow-x-auto px-4 pb-6 pt-8 sm:mx-0 sm:px-0">
       <div className="mx-auto flex w-max snap-x snap-mandatory gap-8 lg:w-full lg:justify-center">
-        <PhoneFrame caption="Scanning animation while the AI works">
-          <ScanScreen />
+        <PhoneFrame caption={t.scanCaption}>
+          <ScanScreen t={t} />
         </PhoneFrame>
-        <PhoneFrame caption="Results at a glance — illustrative example" className="lg:-translate-y-6">
-          <ResultsScreen />
+        <PhoneFrame caption={t.resultsCaption} className="lg:-translate-y-6">
+          <ResultsScreen lang={lang} />
         </PhoneFrame>
-        <PhoneFrame caption={`${LIBRARY.length} illustrated library entries`}>
-          <LibraryScreen />
+        <PhoneFrame caption={t.libraryCaption(LIBRARY.length)}>
+          <LibraryScreen lang={lang} t={t} />
         </PhoneFrame>
       </div>
     </div>

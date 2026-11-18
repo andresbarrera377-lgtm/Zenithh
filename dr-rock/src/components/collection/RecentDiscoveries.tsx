@@ -3,10 +3,12 @@
 import { ArrowRight, Gem } from "lucide-react";
 import Link from "next/link";
 import { useDiscoveries } from "@/lib/collection/store";
+import { useMessages } from "@/lib/i18n/client";
 import { DiscoveryCard } from "./DiscoveryCard";
 
 export function RecentDiscoveries() {
   const { data, loading } = useDiscoveries();
+  const t = useMessages("collection");
   if (loading) return <div className="shimmer h-40 rounded-[1.25rem]" aria-hidden />;
   if (data.length === 0) {
     return (
@@ -15,7 +17,7 @@ export function RecentDiscoveries() {
           <Gem className="h-5 w-5" />
         </span>
         <p className="text-sm text-granite-300">
-          No saved discoveries yet. Analyze a rock and save the report to start your collection.
+          {t.recentEmpty}
         </p>
       </div>
     );
@@ -29,7 +31,7 @@ export function RecentDiscoveries() {
       </div>
       {data.length > 3 && (
         <Link href="/app/collection" className="inline-flex items-center gap-1 text-sm text-mineral-300 hover:underline">
-          View all {data.length} discoveries <ArrowRight className="h-4 w-4" />
+          {t.viewAll(data.length)} <ArrowRight className="h-4 w-4" />
         </Link>
       )}
     </div>

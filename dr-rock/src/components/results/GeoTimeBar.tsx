@@ -1,4 +1,7 @@
-import { EONS_PRECAMBRIAN, PERIODS, timeToPosition } from "@/lib/library/timescale";
+"use client";
+
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { EONS_PRECAMBRIAN, PERIODS, timeToPosition, unitName } from "@/lib/library/timescale";
 import { cn, formatMaRange } from "@/lib/utils";
 
 export interface TimeRange {
@@ -13,7 +16,7 @@ const TICKS = [
   { ma: 538.8, label: "539 Ma" },
   { ma: 251.9, label: "252 Ma", desktopOnly: true },
   { ma: 66, label: "66 Ma" },
-  { ma: 0, label: "Today" },
+  { ma: 0, label: "today" },
 ];
 
 const toneClass = {
@@ -35,6 +38,8 @@ export function GeoTimeBar({
   className?: string;
 }) {
   const units = [EONS_PRECAMBRIAN, ...PERIODS];
+  const locale = useLocale();
+  const today = useMessages("report").time.today;
   const valid = ranges.filter((r) => r.minMa != null || r.maxMa != null);
 
   return (
@@ -48,12 +53,12 @@ export function GeoTimeBar({
             return (
               <div
                 key={u.id}
-                title={`${u.name}: ${u.start}–${u.end} Ma`}
+                title={`${unitName(u, locale)}: ${u.start}–${u.end} Ma`}
                 className={cn("relative h-full border-r border-carbon-950/40 transition-opacity", dim && "opacity-25")}
                 style={{ width: `${(right - left) * 100}%`, backgroundColor: u.color }}
               >
                 <span className="absolute inset-0 hidden items-center justify-center overflow-hidden text-[9px] font-semibold uppercase tracking-wide text-carbon-950/75 md:flex">
-                  {(right - left) * 100 > 5.5 ? u.name.slice(0, 4) : u.name.slice(0, 1)}
+                  {(right - left) * 100 > 5.5 ? unitName(u, locale).slice(0, 4) : unitName(u, locale).slice(0, 1)}
                 </span>
               </div>
             );
@@ -88,7 +93,7 @@ export function GeoTimeBar({
             )}
             style={{ left: `${timeToPosition(t.ma) * 100}%` }}
           >
-            {t.label}
+            {t.label === "today" ? today : t.label}
           </span>
         ))}
       </div>
@@ -99,7 +104,7 @@ export function GeoTimeBar({
             <li key={r.label} className="flex items-center gap-2">
               <span className={cn("h-2.5 w-2.5 rounded-sm", toneClass[r.tone].dot)} aria-hidden />
               <span className="text-granite-300">{r.label}:</span>
-              <span className={cn("font-mono", toneClass[r.tone].text)}>{formatMaRange(r.minMa, r.maxMa)}</span>
+              <span className={cn("font-mono", toneClass[r.tone].text)}>{formatMaRange(r.minMa, r.maxMa, locale)}</span>
             </li>
           ))}
         </ul>

@@ -4,38 +4,35 @@ import { Camera, CameraOff, RefreshCw, SwitchCamera, X, Zap, ZapOff } from "luci
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { captureVideoFrame, ImageProcessingError, type ProcessedImage } from "@/lib/image/process-image";
+import { useMessages } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 type CameraState =
   | { kind: "starting" }
   | { kind: "live" }
-  | { kind: "error"; title: string; message: string };
+  | { kind: "error"; error: CameraErrorKind }
+  | { kind: "captureError"; message: string };
+
+type CameraErrorKind = "denied" | "notFound" | "busy" | "unavailable";
 
 interface TorchCapabilities extends MediaTrackCapabilities {
   torch?: boolean;
 }
 
-function describeCameraError(error: unknown): { title: string; message: string } {
+function describeCameraError(error: unknown): CameraErrorKind {
   const name = error instanceof DOMException ? error.name : "";
   switch (name) {
     case "NotAllowedError":
     case "SecurityError":
-      return {
-        title: "Camera permission denied",
-        message:
-          "Allow camera access for this site in your browser settings, or use your device's camera app with the button below.",
-      };
+      return "denied";
     case "NotFoundError":
     case "OverconstrainedError":
-      return { title: "No camera found", message: "This device has no available camera. You can upload a photo instead." };
+      return "notFound";
     case "NotReadableError":
     case "AbortError":
-      return {
-        title: "Camera is busy",
-        message: "Another app may be using the camera. Close it and try again, or upload a photo instead.",
-      };
+      return "busy";
     default:
-      return { title: "Camera unavailable", message: "The camera could not be started. You can upload a photo instead." };
+      return "unavailable";
   }
 }
 
@@ -59,6 +56,7 @@ export function CameraCapture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [state, setState] = useState<CameraState>({ kind: "starting" });
+  const t = useMessages("scan");
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [canSwitch, setCanSwitch] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
@@ -104,7 +102,7 @@ export function CameraCapture({
         setCanSwitch(devices.filter((d) => d.kind === "videoinput").length > 1);
         setState({ kind: "live" });
       } catch (error) {
-        if (!cancelled) setState({ kind: "error", ...describeCameraError(error) });
+        if (!cancelled) setState({ kind: "error", error: describeCameraError(error) });
       }
     }
     start();
@@ -144,9 +142,8 @@ export function CameraCapture({
       onCapture(image);
     } catch (error) {
       setState({
-        kind: "error",
-        title: "Capture failed",
-        message: error instanceof ImageProcessingError ? error.message : "The photo could not be captured. Please try again.",
+        kind: "captureError",
+        message: error instanceof ImageProcessingError ? t.imageErrors[error.code] : t.camera.captureFailedText,
       });
     } finally {
       setCapturing(false);
@@ -157,16 +154,16 @@ export function CameraCapture({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Camera"
+      aria-label={t.camera.label}
       className="fixed inset-0 z-[60] flex flex-col bg-carbon-950 animate-fade-in"
     >
       <div className="safe-top flex items-center justify-between px-4 py-3">
-        <p className="label-mono text-mineral-400">Specimen camera</p>
+        <p className="label-mono text-mineral-400">{t.camera.title}</p>
         <button
           type="button"
           onClick={onClose}
           className="grid h-10 w-10 place-items-center rounded-full bg-granite-800/80 text-chalk-50 ring-1 ring-granite-600/60"
-          aria-label="Close camera"
+          aria-label={t.camera.close}
         >
           <X className="h-5 w-5" />
         </button>
@@ -192,27 +189,31 @@ export function CameraCapture({
             <div className="absolute inset-0 grid place-items-center text-granite-300">
               <div className="flex flex-col items-center gap-3">
                 <Camera className="h-8 w-8 animate-pulse text-mineral-400" />
-                <p className="text-sm">Starting camera… allow access if your browser asks.</p>
+                <p className="text-sm">{t.camera.starting}</p>
               </div>
             </div>
           )}
 
-          {state.kind === "error" && (
+          {(state.kind === "error" || state.kind === "captureError") && (
             <div className="absolute inset-0 grid place-items-center p-6 text-center">
               <div className="max-w-sm space-y-4">
                 <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-jasper-500/10 text-jasper-300 ring-1 ring-jasper-500/30">
                   <CameraOff className="h-6 w-6" />
                 </div>
                 <div className="space-y-1.5">
-                  <p className="font-display text-lg font-semibold text-chalk-50">{state.title}</p>
-                  <p className="text-sm leading-relaxed text-granite-300">{state.message}</p>
+                  <p className="font-display text-lg font-semibold text-chalk-50">
+                    {state.kind === "error" ? t.camera.errors[state.error].title : t.camera.captureFailed}
+                  </p>
+                  <p className="text-sm leading-relaxed text-granite-300">
+                    {state.kind === "error" ? t.camera.errors[state.error].message : state.message}
+                  </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
                   <Button variant="secondary" size="sm" icon={<RefreshCw className="h-4 w-4" />} onClick={() => setAttempt((n) => n + 1)}>
-                    Try again
+                    {t.camera.tryAgain}
                   </Button>
                   <Button variant="outline" size="sm" icon={<Camera className="h-4 w-4" />} onClick={onUseNativeCamera}>
-                    Use camera app
+                    {t.camera.useApp}
                   </Button>
                 </div>
               </div>
@@ -236,7 +237,7 @@ export function CameraCapture({
             onClick={toggleTorch}
             disabled={!torchSupported || state.kind !== "live"}
             className="grid h-12 w-12 place-items-center rounded-full bg-granite-800/80 text-chalk-50 ring-1 ring-granite-600/60 disabled:opacity-30"
-            aria-label={torchOn ? "Turn light off" : "Turn light on"}
+            aria-label={torchOn ? t.camera.lightOff : t.camera.lightOn}
             aria-pressed={torchOn}
           >
             {torchOn ? <Zap className="h-5 w-5 text-ochre-300" /> : <ZapOff className="h-5 w-5" />}
@@ -247,7 +248,7 @@ export function CameraCapture({
             onClick={capture}
             disabled={state.kind !== "live" || capturing}
             className="group relative grid h-20 w-20 place-items-center rounded-full disabled:opacity-40"
-            aria-label="Take photo"
+            aria-label={t.camera.shoot}
           >
             <span className="absolute inset-0 rounded-full border-4 border-chalk-50/90" />
             <span className="h-15 w-15 rounded-full bg-mineral-400 transition-transform group-active:scale-90" />
@@ -258,15 +259,15 @@ export function CameraCapture({
             onClick={() => setFacing((f) => (f === "environment" ? "user" : "environment"))}
             disabled={!canSwitch || state.kind !== "live"}
             className="grid h-12 w-12 place-items-center rounded-full bg-granite-800/80 text-chalk-50 ring-1 ring-granite-600/60 disabled:opacity-30"
-            aria-label="Switch camera"
+            aria-label={t.camera.switch}
           >
             <SwitchCamera className="h-5 w-5" />
           </button>
         </div>
         <p className="mt-4 text-center text-xs text-granite-400">
-          Fill the frame with the rock, keep it sharp and well lit.{" "}
+          {t.camera.hint}{" "}
           <button type="button" onClick={onUseNativeCamera} className="text-mineral-300 underline-offset-2 hover:underline">
-            Use your camera app instead
+            {t.camera.useAppInstead}
           </button>
         </p>
       </div>
@@ -275,6 +276,7 @@ export function CameraCapture({
 }
 
 function Viewfinder() {
+  const t = useMessages("scan");
   const corner = "absolute h-10 w-10 border-mineral-400";
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
@@ -289,7 +291,7 @@ function Viewfinder() {
       </div>
       <div className="absolute inset-x-0 top-3 flex justify-center">
         <span className="label-mono rounded-full bg-carbon-950/60 px-3 py-1 text-mineral-300 backdrop-blur">
-          Align specimen
+          {t.camera.align}
         </span>
       </div>
     </div>

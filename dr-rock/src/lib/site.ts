@@ -20,5 +20,3 @@ export const siteConfig = {
   },
 } as const;
 
-export const SCIENTIFIC_DISCLAIMER =
-  "Photo-based identification is an educational estimate. It does not replace examination by a professional geologist or paleontologist, laboratory testing or radiometric dating.";

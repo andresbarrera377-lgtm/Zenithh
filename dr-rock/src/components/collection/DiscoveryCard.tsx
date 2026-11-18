@@ -4,17 +4,20 @@ import { Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { VerdictBadge } from "@/components/results/ResultSummary";
-import { CLASSIFICATION_META } from "@/lib/analysis/presentation";
 import { updateDiscovery, useObjectUrl } from "@/lib/collection/store";
 import type { Discovery } from "@/lib/collection/types";
+import { useLocale, useMessages } from "@/lib/i18n/client";
 import { cn, formatDate } from "@/lib/utils";
 
 export function DiscoveryCard({ discovery }: { discovery: Discovery }) {
   const thumb = useObjectUrl(discovery.thumbnail);
   const { analysis } = discovery;
+  const t = useMessages("collection").card;
+  const classes = useMessages("report").classifications;
+  const locale = useLocale();
   return (
     <div className="group panel relative flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:ring-1 hover:ring-mineral-500/40">
-      <Link href={`/app/collection/${discovery.id}`} className="absolute inset-0 z-10" aria-label={`Open ${discovery.title}`} />
+      <Link href={`/app/collection/${discovery.id}`} className="absolute inset-0 z-10" aria-label={t.open(discovery.title)} />
       <div className="relative aspect-[4/3] bg-carbon-900">
         {thumb ? (
           <Image src={thumb} alt="" fill unoptimized className="object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
@@ -31,7 +34,7 @@ export function DiscoveryCard({ discovery }: { discovery: Discovery }) {
             <h3 className="truncate font-display text-lg font-semibold text-chalk-50">{discovery.title}</h3>
             <p className="truncate text-xs text-granite-400">
               {discovery.title !== analysis.identification.rockName && `${analysis.identification.rockName} · `}
-              {CLASSIFICATION_META[analysis.identification.classification].label}
+              {classes[analysis.identification.classification].label}
             </p>
           </div>
           <button
@@ -42,21 +45,21 @@ export function DiscoveryCard({ discovery }: { discovery: Discovery }) {
               discovery.favorite ? "text-ochre-400" : "text-granite-500 hover:text-chalk-50",
             )}
             aria-pressed={discovery.favorite}
-            aria-label={discovery.favorite ? "Remove from favourites" : "Add to favourites"}
+            aria-label={discovery.favorite ? t.removeFavorite : t.addFavorite}
           >
             <Star className="h-5 w-5" fill={discovery.favorite ? "currentColor" : "none"} />
           </button>
         </div>
         {discovery.tags.length > 0 && (
           <ul className="flex flex-wrap gap-1.5">
-            {discovery.tags.slice(0, 4).map((t) => (
-              <li key={t} className="rounded-full bg-granite-800 px-2 py-0.5 text-[11px] text-granite-200">
-                #{t}
+            {discovery.tags.slice(0, 4).map((tg) => (
+              <li key={tg} className="rounded-full bg-granite-800 px-2 py-0.5 text-[11px] text-granite-200">
+                #{tg}
               </li>
             ))}
           </ul>
         )}
-        <p className="mt-auto pt-1 font-mono text-[11px] text-granite-500">{formatDate(discovery.createdAt)}</p>
+        <p className="mt-auto pt-1 font-mono text-[11px] text-granite-500">{formatDate(discovery.createdAt, locale)}</p>
       </div>
     </div>
   );

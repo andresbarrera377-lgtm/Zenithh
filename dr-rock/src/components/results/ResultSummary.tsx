@@ -1,9 +1,12 @@
+"use client";
+
 import { Bone, CircleSlash, FileSearch, HelpCircle, Hourglass, Layers } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { Badge, Meter, Panel } from "@/components/ui/primitives";
-import { CLASSIFICATION_META, VERDICT_META, confidenceLevel } from "@/lib/analysis/presentation";
+import { VERDICT_TONE, confidenceLevel } from "@/lib/analysis/presentation";
 import type { RockAnalysis, Verdict } from "@/lib/analysis/schema";
+import { useLocale, useMessages } from "@/lib/i18n/client";
 import { cn, formatMaRange } from "@/lib/utils";
 import { ConfidenceGauge } from "./ConfidenceGauge";
 
@@ -23,11 +26,11 @@ const VERDICT_ICONS: Record<Verdict, typeof Bone> = {
 };
 
 export function VerdictBadge({ verdict, className }: { verdict: Verdict; className?: string }) {
-  const meta = VERDICT_META[verdict];
+  const label = useMessages("report").verdicts[verdict].label;
   const Icon = VERDICT_ICONS[verdict];
   return (
-    <Badge tone={meta.tone} className={className} icon={<Icon className="h-3.5 w-3.5" />}>
-      {meta.label}
+    <Badge tone={VERDICT_TONE[verdict]} className={className} icon={<Icon className="h-3.5 w-3.5" />}>
+      {label}
     </Badge>
   );
 }
@@ -54,10 +57,12 @@ export function ResultSummary({
   footer?: ReactNode;
 }) {
   const { identification, confidence, verdict, ageAndHistory } = analysis;
-  const verdictMeta = VERDICT_META[verdict];
-  const classification = CLASSIFICATION_META[identification.classification];
+  const t = useMessages("report");
+  const locale = useLocale();
+  const verdictMeta = { ...t.verdicts[verdict], tone: VERDICT_TONE[verdict] };
+  const classification = t.classifications[identification.classification];
   const rockAge = ageAndHistory.rockAge;
-  const ageRange = formatMaRange(rockAge.minMa, rockAge.maxMa);
+  const ageRange = formatMaRange(rockAge.minMa, rockAge.maxMa, locale);
   const fossilLevel = confidenceLevel(confidence.fossil);
 
   return (
@@ -69,7 +74,7 @@ export function ResultSummary({
           ) : imageSrc ? (
             <Image
               src={imageSrc}
-              alt={imageAlt ?? `Photo of ${identification.rockName}`}
+              alt={imageAlt ?? t.summary.photoOf(identification.rockName)}
               fill
               unoptimized
               className="object-cover"
@@ -85,7 +90,7 @@ export function ResultSummary({
 
         <div className="@container/info space-y-6 p-5 @md/info:p-7">
           <div className="space-y-3">
-            <p className="label-mono text-mineral-400">Identification report</p>
+            <p className="label-mono text-mineral-400">{t.summary.eyebrow}</p>
             <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight text-chalk-50 @md/info:text-4xl">
               {identification.rockName}
             </h2>
@@ -95,28 +100,28 @@ export function ResultSummary({
 
           <div className="grid gap-3 @md/info:grid-cols-2">
             <div className="flex items-center gap-4 rounded-2xl bg-carbon-900/70 p-4 ring-1 ring-granite-700/70 @md/info:col-span-2 @xl/info:col-span-1 @xl/info:row-span-2 @xl/info:flex-col @xl/info:justify-center @xl/info:text-center">
-              <ConfidenceGauge value={confidence.identification} label="Identification confidence" size={118} />
+              <ConfidenceGauge value={confidence.identification} label={t.summary.idConfidence} size={118} />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-chalk-50">Identification confidence</p>
-                <p className="text-xs text-granite-400">Self-assessed by the AI from visible evidence</p>
+                <p className="text-sm font-medium text-chalk-50">{t.summary.idConfidence}</p>
+                <p className="text-xs text-granite-400">{t.summary.idConfidenceNote}</p>
               </div>
             </div>
 
-            <StatTile icon={<Bone className="h-4 w-4" />} label="Possible fossil">
+            <StatTile icon={<Bone className="h-4 w-4" />} label={t.summary.possibleFossil}>
               <p className={cn("font-medium", TONE_TEXT[verdictMeta.tone])}>{verdictMeta.short}</p>
               <div className="mt-2 flex items-center gap-2">
-                <Meter value={confidence.fossil} tone={fossilLevel.tone} label="Fossil verdict confidence" />
+                <Meter value={confidence.fossil} tone={fossilLevel.tone} label={t.summary.fossilConfidence} />
                 <span className="font-mono text-xs text-granite-300">{confidence.fossil}%</span>
               </div>
               {identification.fossilType && <p className="mt-1.5 text-xs text-granite-300">{identification.fossilType}</p>}
             </StatTile>
 
-            <StatTile icon={<Layers className="h-4 w-4" />} label="Geological category">
+            <StatTile icon={<Layers className="h-4 w-4" />} label={t.summary.category}>
               <p className="font-medium text-chalk-50">{classification.label}</p>
               <p className="mt-1 text-xs leading-snug text-granite-400">{classification.description}</p>
             </StatTile>
 
-            <StatTile icon={<Hourglass className="h-4 w-4" />} label="Estimated age" className="@md/info:col-span-2">
+            <StatTile icon={<Hourglass className="h-4 w-4" />} label={t.summary.estimatedAge} className="@md/info:col-span-2">
               <p className="font-medium text-chalk-50">{rockAge.summary}</p>
               {ageRange && <p className="mt-1 font-mono text-xs text-mineral-300">{ageRange}</p>}
             </StatTile>

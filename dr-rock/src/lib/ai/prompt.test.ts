@@ -7,6 +7,12 @@ describe("buildUserPrompt", () => {
     expect(prompt.match(/<\/field_notes>/g)).toHaveLength(1);
     expect(prompt).toContain("‹/field_notes›");
   });
+  it("names the report language and keeps enums in English", () => {
+    expect(buildUserPrompt(undefined)).toContain("Report language: English");
+    const es = buildUserPrompt(undefined, "es");
+    expect(es).toContain("Report language: Spanish");
+    expect(es).toContain("Keep JSON keys and enum values in English");
+  });
   it("says when no notes were provided", () => {
     expect(buildUserPrompt(undefined)).toContain("(none provided)");
   });

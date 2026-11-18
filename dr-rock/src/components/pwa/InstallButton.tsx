@@ -3,6 +3,7 @@
 import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { useMessages } from "@/lib/i18n/client";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -25,6 +26,7 @@ export function InstallButton({
 }) {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
+  const t = useMessages("pwa");
 
   useEffect(() => {
     const onPrompt = (e: Event) => {
@@ -44,7 +46,7 @@ export function InstallButton({
   }, []);
 
   if (installed) {
-    return <p className="text-sm text-mineral-300">Dr.Rock is installed on this device.</p>;
+    return <p className="text-sm text-mineral-300">{t.installed}</p>;
   }
   if (!promptEvent) return <>{fallback}</>;
 
@@ -60,7 +62,7 @@ export function InstallButton({
         setPromptEvent(null);
       }}
     >
-      Install Dr.Rock
+      {t.install}
     </Button>
   );
 }

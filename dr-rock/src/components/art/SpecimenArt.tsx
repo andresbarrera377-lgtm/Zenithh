@@ -5,7 +5,19 @@ import { RockArt } from "./RockArt";
 import { TimeArt } from "./TimeArt";
 
 /** Renders the procedural illustration for any library entry. */
-export function SpecimenArt({ seed, art, className, title }: { seed: string; art: ArtSpec; className?: string; title?: string }) {
+export function SpecimenArt({
+  seed,
+  art,
+  className,
+  title,
+  lang = "en",
+}: {
+  seed: string;
+  art: ArtSpec;
+  className?: string;
+  title?: string;
+  lang?: "es" | "en";
+}) {
   switch (art.kind) {
     case "rock":
       return <RockArt seed={seed} texture={art.texture} palette={art.palette} className={className} title={title} />;
@@ -14,6 +26,6 @@ export function SpecimenArt({ seed, art, className, title }: { seed: string; art
     case "crystal":
       return <CrystalArt seed={seed} habit={art.habit} palette={art.palette} className={className} title={title} />;
     case "time":
-      return <TimeArt unitId={art.unitId} className={className} title={title} />;
+      return <TimeArt unitId={art.unitId} className={className} title={title} lang={lang} />;
   }
 }

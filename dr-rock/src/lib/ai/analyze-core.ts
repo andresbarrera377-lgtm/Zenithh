@@ -3,6 +3,7 @@
  * (netlify/functions/analyze-background.mts) can bundle it; app code imports it through the
  * `server-only` wrapper `analyze-rock.ts` so it can never reach a client bundle.
  */
+import type { Locale } from "../i18n/config";
 import Anthropic from "@anthropic-ai/sdk";
 import { normalizeAnalysis } from "../analysis/normalize";
 import type { AnalysisErrorCode, AnalyzeResponse, FieldContext, RockAnalysis } from "../analysis/schema";
@@ -40,6 +41,8 @@ export interface AnalyzeRockInput {
   imageBase64: string;
   mediaType: AllowedMediaType;
   context?: FieldContext;
+  /** Language of the report's free text (enum values stay English). */
+  lang?: Locale;
   signal?: AbortSignal;
 }
 
@@ -53,7 +56,7 @@ export interface AnalyzeRockOutput {
  * Throws `AnalysisError` with a user-presentable message on every failure path:
  * the app never fabricates a result when the model is unavailable.
  */
-export async function analyzeRock({ imageBase64, mediaType, context, signal }: AnalyzeRockInput): Promise<AnalyzeRockOutput> {
+export async function analyzeRock({ imageBase64, mediaType, context, lang, signal }: AnalyzeRockInput): Promise<AnalyzeRockOutput> {
   const config = getAiConfig();
   if (!config.apiKeyConfigured) {
     throw new AnalysisError(
@@ -65,7 +68,7 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
 
   const userContent = [
     { type: "image" as const, source: { type: "base64" as const, media_type: mediaType, data: imageBase64 } },
-    { type: "text" as const, text: buildUserPrompt(context) },
+    { type: "text" as const, text: buildUserPrompt(context, lang) },
   ];
 
   // The report is too large for grammar-constrained structured outputs, so it is requested as

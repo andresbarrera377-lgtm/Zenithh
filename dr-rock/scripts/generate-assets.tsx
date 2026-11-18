@@ -1,6 +1,7 @@
 /**
  * Generates static assets from code so they stay in sync with the design:
  *  - public/library/<id>.svg : procedural illustration for every Rock Library entry
+ *    (plus <id>.es.svg for time units, whose artwork carries the period name)
  *  - public/icons/*.png, src/app/icon.svg, src/app/apple-icon.png : PWA & favicon icons
  *  - public/splash/ios-*.png : launch screens for the iPhone/iPad home-screen app
  *
@@ -13,7 +14,7 @@ import sharp from "sharp";
 import { SpecimenArt } from "../src/components/art/SpecimenArt";
 import { IOS_SPLASH_SCREENS, splashFile } from "../src/lib/brand/ios-splash";
 import { markSvg } from "../src/lib/brand/mark-geometry";
-import { LIBRARY } from "../src/lib/library";
+import { LIBRARY, getEntry, libraryImage } from "../src/lib/library";
 
 const root = process.cwd();
 
@@ -25,6 +26,12 @@ async function main() {
     const svg = renderToStaticMarkup(<SpecimenArt seed={entry.id} art={entry.art} title={entry.name} />);
     writeFileSync(path.join(libraryDir, `${entry.id}.svg`), svg);
     total += svg.length;
+    if (entry.art.kind === "time") {
+      const es = getEntry(entry.id, "es")!;
+      const svgEs = renderToStaticMarkup(<SpecimenArt seed={entry.id} art={entry.art} title={es.name} lang="es" />);
+      writeFileSync(path.join(root, "public", libraryImage(entry, "es")), svgEs);
+      total += svgEs.length;
+    }
   }
   console.log(`library: ${LIBRARY.length} illustrations, ${(total / 1024).toFixed(0)} KB total`);
 

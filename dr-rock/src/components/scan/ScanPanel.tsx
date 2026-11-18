@@ -9,16 +9,9 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { Notice, Panel } from "@/components/ui/primitives";
 import { ACCEPTED_IMAGE_INPUT, ImageProcessingError, processImageFile, type ProcessedImage } from "@/lib/image/process-image";
 import { useScanSession } from "@/lib/scan/session";
-import { SCIENTIFIC_DISCLAIMER } from "@/lib/site";
+import { useMessages } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 import { CameraCapture, isLiveCameraSupported } from "./CameraCapture";
-
-const PHOTO_TIPS = [
-  "Use soft daylight — avoid harsh flash and deep shadows.",
-  "Fill the frame and keep the surface in sharp focus.",
-  "Add a coin or ruler for scale.",
-  "Photograph a fresh, clean surface; wetting it can reveal texture.",
-];
 
 export function ScanPanel() {
   const router = useRouter();
@@ -30,6 +23,8 @@ export function ScanPanel() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const t = useMessages("scan");
+  const common = useMessages("common");
 
   async function handleFile(file: File | undefined | null) {
     if (!file) return;
@@ -39,7 +34,7 @@ export function ScanPanel() {
       const processed = await processImageFile(file);
       session.setImage(processed);
     } catch (e) {
-      setError(e instanceof ImageProcessingError ? e.message : "This image could not be processed. Please try another photo.");
+      setError(e instanceof ImageProcessingError ? t.imageErrors[e.code] : t.imageError);
     } finally {
       setProcessing(false);
     }
@@ -103,42 +98,41 @@ export function ScanPanel() {
       {session.status === "analyzing" && (
         <Notice
           kind="info"
-          title="Analysis in progress"
+          title={t.inProgressTitle}
           action={
             <ButtonLink href="/app/analysis" size="sm">
-              View progress
+              {t.viewProgress}
             </ButtonLink>
           }
         >
-          Your photo is being analyzed. You can keep exploring — the results will be waiting for you.
+          {t.inProgressText}
         </Notice>
       )}
       {session.status === "done" && session.result && (
         <Notice
           kind="success"
-          title="Your results are ready"
+          title={t.readyTitle}
           action={
             <ButtonLink href="/app/results" size="sm">
-              View results
+              {t.viewResults}
             </ButtonLink>
           }
         >
           {session.result.analysis.identification.rockName}
-          {session.savedId ? " — saved to your collection." : " — not saved yet."}
+          {session.savedId ? t.savedSuffix : t.notSavedSuffix}
         </Notice>
       )}
       {aiStatus === "not-configured" && (
-        <Notice kind="error" title="AI analysis is not available on this server">
-          The AI engine has not been configured, so rocks cannot be analyzed right now. Dr.Rock will never show an
-          invented identification. You can still explore the Rock Library and your saved collection.
+        <Notice kind="error" title={t.notConfiguredTitle}>
+          {t.notConfiguredText}
         </Notice>
       )}
       {aiStatus === "offline" && (
-        <Notice kind="warning" title="You are offline">
-          You can prepare a photo now, but analysis needs an internet connection.
+        <Notice kind="warning" title={t.offlineTitle}>
+          {t.offlineText}
         </Notice>
       )}
-      {error && <Notice kind="error" title="Image problem">{error}</Notice>}
+      {error && <Notice kind="error" title={t.imageProblem}>{error}</Notice>}
 
       {!hasImage ? (
         <div
@@ -157,22 +151,22 @@ export function ScanPanel() {
           <div className="relative grid gap-4 sm:grid-cols-2">
             <CaptureTile
               icon={<Camera className="h-7 w-7" />}
-              title="Take a photo"
-              description="Open the camera and photograph your rock."
+              title={t.takePhoto}
+              description={t.takePhotoText}
               onClick={takePhoto}
               primary
               disabled={processing}
             />
             <CaptureTile
               icon={<ImageUp className="h-7 w-7" />}
-              title="Upload image"
-              description="Choose a photo from your gallery or computer."
+              title={t.upload}
+              description={t.uploadText}
               onClick={() => uploadRef.current?.click()}
               disabled={processing}
             />
           </div>
           <p className="relative mt-5 text-center text-xs text-granite-400">
-            {processing ? "Preparing image…" : "JPG, PNG, WebP or HEIC · you can also drag & drop a photo here"}
+            {processing ? t.preparing : t.formats}
           </p>
         </div>
       ) : (
@@ -197,7 +191,7 @@ export function ScanPanel() {
               disabled={aiStatus === "not-configured" || aiStatus === "offline" || session.status === "analyzing"}
               icon={<Microscope className="h-5 w-5" />}
             >
-              {session.status === "analyzing" ? "Analyzing…" : session.status === "done" ? "Analyze again" : "Analyze rock"}
+              {session.status === "analyzing" ? t.analyzing : session.status === "done" ? t.analyzeAgain : t.analyze}
             </Button>
           </div>
         </>
@@ -207,10 +201,10 @@ export function ScanPanel() {
         <Panel className="p-5">
           <div className="mb-3 flex items-center gap-2 text-chalk-50">
             <Lightbulb className="h-4 w-4 text-ochre-400" />
-            <h2 className="font-display text-sm font-semibold">Tips for an accurate analysis</h2>
+            <h2 className="font-display text-sm font-semibold">{t.tipsTitle}</h2>
           </div>
           <ul className="space-y-2 text-sm text-granite-300">
-            {PHOTO_TIPS.map((tip) => (
+            {t.tips.map((tip) => (
               <li key={tip} className="flex gap-2">
                 <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-mineral-400" aria-hidden />
                 {tip}
@@ -221,11 +215,10 @@ export function ScanPanel() {
         <Panel className="p-5">
           <div className="mb-3 flex items-center gap-2 text-chalk-50">
             <ShieldCheck className="h-4 w-4 text-mineral-400" />
-            <h2 className="font-display text-sm font-semibold">Privacy & accuracy</h2>
+            <h2 className="font-display text-sm font-semibold">{t.privacyTitle}</h2>
           </div>
           <p className="text-sm leading-relaxed text-granite-300">
-            Photos are resized and stripped of metadata (including GPS) on your device, then sent to the AI only for this
-            analysis. {SCIENTIFIC_DISCLAIMER}
+            {t.privacyText} {common.disclaimer}
           </p>
         </Panel>
       </div>
@@ -306,48 +299,49 @@ function SpecimenPreview({
   onClear: () => void;
   processing: boolean;
 }) {
+  const t = useMessages("scan");
   return (
     <Panel className="overflow-hidden p-0">
       <div className="grid md:grid-cols-[1.3fr_1fr]">
         <div className="relative aspect-[4/3] bg-carbon-900">
-          <Image src={imageUrl} alt="Selected specimen" fill unoptimized className="object-contain" sizes="(min-width: 768px) 60vw, 100vw" />
+          <Image src={imageUrl} alt={t.selected} fill unoptimized className="object-contain" sizes="(min-width: 768px) 60vw, 100vw" />
           <div className="pointer-events-none absolute inset-3 rounded-2xl ring-1 ring-mineral-400/30" aria-hidden />
           <span className="label-mono absolute left-4 top-4 rounded-full bg-carbon-950/70 px-3 py-1 text-mineral-300 backdrop-blur">
-            Specimen ready
+            {t.ready}
           </span>
         </div>
         <div className="flex flex-col justify-between gap-6 p-5 sm:p-6">
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-mineral-300">
               <Sparkles className="h-4 w-4" />
-              <p className="font-display font-semibold">Photo prepared for analysis</p>
+              <p className="font-display font-semibold">{t.prepared}</p>
             </div>
             <dl className="grid grid-cols-2 gap-4 font-mono text-xs">
               <div>
-                <dt className="text-granite-400">RESOLUTION</dt>
+                <dt className="text-granite-400">{t.resolution}</dt>
                 <dd className="mt-1 text-chalk-100">
                   {image.width} × {image.height}
                 </dd>
               </div>
               <div>
-                <dt className="text-granite-400">SIZE</dt>
+                <dt className="text-granite-400">{t.size}</dt>
                 <dd className="mt-1 text-chalk-100">{Math.round(image.blob.size / 1024)} KB</dd>
               </div>
               <div className="col-span-2">
-                <dt className="text-granite-400">METADATA</dt>
-                <dd className="mt-1 text-chalk-100">Removed (incl. location)</dd>
+                <dt className="text-granite-400">{t.metadata}</dt>
+                <dd className="mt-1 text-chalk-100">{t.metadataRemoved}</dd>
               </div>
             </dl>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" onClick={onRetake} disabled={processing} icon={<Camera className="h-4 w-4" />}>
-              Retake
+              {t.retake}
             </Button>
             <Button variant="secondary" size="sm" onClick={onReplace} disabled={processing} icon={<ImageUp className="h-4 w-4" />}>
-              Replace
+              {t.replace}
             </Button>
             <Button variant="ghost" size="sm" onClick={onClear} disabled={processing} icon={<RotateCcw className="h-4 w-4" />}>
-              Start over
+              {t.startOver}
             </Button>
           </div>
         </div>
@@ -359,38 +353,39 @@ function SpecimenPreview({
 function FieldContextForm() {
   const { context, setContext } = useScanSession();
   const filled = Object.values(context).some((v) => v && v.trim());
+  const t = useMessages("scan");
   return (
     <details className="group panel overflow-hidden" open={filled || undefined}>
       <summary className="flex cursor-pointer items-center justify-between gap-4 p-5">
         <div>
-          <p className="font-display font-semibold text-chalk-50">Add field notes <span className="font-normal text-granite-400">(optional)</span></p>
-          <p className="mt-0.5 text-sm text-granite-400">Where you found it, its size or simple tests help the AI.</p>
+          <p className="font-display font-semibold text-chalk-50">{t.notesTitle} <span className="font-normal text-granite-400">{t.optional}</span></p>
+          <p className="mt-0.5 text-sm text-granite-400">{t.notesText}</p>
         </div>
         <ChevronDown className="h-5 w-5 shrink-0 text-granite-400 transition-transform group-open:rotate-180" />
       </summary>
       <div className="grid gap-4 border-t hairline p-5 sm:grid-cols-2">
         <Field
-          label="Where was it found?"
-          placeholder="e.g. Riverbank, Yorkshire coast, UK"
+          label={t.whereFound}
+          placeholder={t.wherePlaceholder}
           maxLength={120}
           value={context.location ?? ""}
           onChange={(location) => setContext({ ...context, location })}
         />
         <Field
-          label="Approximate size"
-          placeholder="e.g. 6 cm"
+          label={t.approxSize}
+          placeholder={t.sizePlaceholder}
           maxLength={60}
           value={context.size ?? ""}
           onChange={(size) => setContext({ ...context, size })}
         />
         <label className="space-y-1.5 sm:col-span-2">
-          <span className="text-sm font-medium text-granite-200">Observations</span>
+          <span className="text-sm font-medium text-granite-200">{t.observations}</span>
           <textarea
             rows={3}
             maxLength={500}
             value={context.notes ?? ""}
             onChange={(e) => setContext({ ...context, notes: e.target.value })}
-            placeholder="e.g. Fizzes with vinegar, scratches glass, found among layered rocks…"
+            placeholder={t.observationsPlaceholder}
             className="w-full resize-none rounded-xl border-0 bg-carbon-900 px-4 py-3 text-sm text-chalk-50 ring-1 ring-inset ring-granite-600/70 placeholder:text-granite-500 focus:ring-2 focus:ring-mineral-400 focus:outline-none"
           />
         </label>

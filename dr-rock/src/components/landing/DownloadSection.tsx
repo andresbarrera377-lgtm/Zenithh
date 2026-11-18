@@ -4,6 +4,7 @@ import { InstallButton } from "@/components/pwa/InstallButton";
 import { IosInstallGuide } from "@/components/pwa/IosInstallGuide";
 import { ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { Badge, Panel } from "@/components/ui/primitives";
+import { getLocale, getMessages } from "@/lib/i18n/server";
 import { siteConfig } from "@/lib/site";
 
 function PlatformCard({
@@ -13,6 +14,7 @@ function PlatformCard({
   action,
   footnote,
   highlight = false,
+  availableLabel,
 }: {
   icon: ReactNode;
   name: string;
@@ -20,6 +22,7 @@ function PlatformCard({
   action: ReactNode;
   footnote: ReactNode;
   highlight?: boolean;
+  availableLabel: string;
 }) {
   return (
     <Panel className={highlight ? "relative overflow-hidden p-6 ring-1 ring-mineral-500/40" : "relative overflow-hidden p-6"}>
@@ -32,7 +35,7 @@ function PlatformCard({
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-carbon-900 text-mineral-400 ring-1 ring-granite-700">{icon}</span>
             {name}
           </p>
-          <Badge tone="mineral">Available</Badge>
+          <Badge tone="mineral">{availableLabel}</Badge>
         </div>
         <p className="text-sm leading-relaxed text-granite-300">{children}</p>
         <div className="mt-auto space-y-3 pt-2">
@@ -50,59 +53,58 @@ function PlatformCard({
  * the browser install prompt (PWA) on computers, and a guided Add to Home Screen on iPhone
  * (Apple does not allow downloading apps from outside the App Store).
  */
-export function DownloadSection() {
+export async function DownloadSection() {
   const apk = siteConfig.androidApk;
+  const t = getMessages(await getLocale()).landing.download;
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-3">
         <PlatformCard
           highlight
+          availableLabel={t.available}
           icon={<Smartphone className="h-5 w-5" />}
           name="Android"
           action={
             <a href={apk.href} download="Dr.Rock.apk" className={buttonClasses({ size: "lg", className: "w-full" })}>
-              <Download className="h-4 w-4" /> Download APK
+              <Download className="h-4 w-4" /> {t.downloadApk}
             </a>
           }
-          footnote={
-            <>
-              Version {apk.version} · {apk.size} · Android {apk.minAndroid} or later. The first time, Android asks you to allow
-              installing apps from your browser or file manager.
-            </>
-          }
+          footnote={t.apkFootnote(apk.version, apk.size, apk.minAndroid)}
         >
-          Download the Dr.Rock app and install it on your phone: home-screen icon, full screen and direct access to the camera.
+          {t.androidText}
         </PlatformCard>
 
         <PlatformCard
           icon={<Laptop className="h-5 w-5" />}
-          name="Windows & Mac"
+          name={t.desktopName}
+          availableLabel={t.available}
           action={
             <InstallButton
               className="w-full"
               fallback={
                 <ButtonLink href="/app" size="lg" variant="secondary" className="w-full" icon={<Globe className="h-4 w-4" />}>
-                  Open the web app
+                  {t.openWebApp}
                 </ButtonLink>
               }
             />
           }
-          footnote="In Chrome or Edge, click the install icon in the address bar. In Safari on Mac, choose File › Add to Dock."
+          footnote={t.desktopFootnote}
         >
-          Install Dr.Rock as a desktop app straight from your browser: its own window and an icon in the Start menu or Dock.
+          {t.desktopText}
         </PlatformCard>
 
         <PlatformCard
           icon={<TabletSmartphone className="h-5 w-5" />}
           name="iPhone & iPad"
+          availableLabel={t.available}
           action={<IosInstallGuide className="w-full" />}
-          footnote="Apple only allows apps from the App Store to be downloaded, so on iPhone Dr.Rock installs from Safari, with no App Store needed."
+          footnote={t.iphoneFootnote}
         >
-          Add Dr.Rock to your Home Screen from Safari in four taps: its own icon, full screen and a launch screen, like any app.
+          {t.iphoneText}
         </PlatformCard>
       </div>
       <p className="text-center text-xs text-granite-500">
-        Every version uses the same AI analysis, which needs an internet connection. Your collection is saved on each device.
+        {t.footnote}
       </p>
     </div>
   );

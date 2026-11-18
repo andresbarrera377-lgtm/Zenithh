@@ -4,6 +4,7 @@ import { FileText } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import type { AnalysisMeta, FieldContext, RockAnalysis } from "@/lib/analysis/schema";
+import { useLocale, useMessages } from "@/lib/i18n/client";
 import { formatDateTime } from "@/lib/utils";
 import { FullReport, type FullReportHandle } from "./FullReport";
 import { ResultSummary } from "./ResultSummary";
@@ -26,6 +27,8 @@ export function ResultsView({
 }) {
   const reportRef = useRef<FullReportHandle>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const t = useMessages("report").view;
+  const locale = useLocale();
 
   function viewFullReport() {
     reportRef.current?.expandAll();
@@ -34,9 +37,9 @@ export function ResultsView({
 
   const contextEntries = context
     ? ([
-        ["Found at", context.location],
-        ["Size", context.size],
-        ["Notes", context.notes],
+        [t.foundAt, context.location],
+        [t.size, context.size],
+        [t.notes, context.notes],
       ].filter(([, v]) => v) as Array<[string, string]>)
     : [];
 
@@ -48,7 +51,7 @@ export function ResultsView({
         actions={
           <>
             <Button onClick={viewFullReport} icon={<FileText className="h-4 w-4" />}>
-              View full report
+              {t.fullReport}
             </Button>
             {actions}
           </>
@@ -72,7 +75,7 @@ export function ResultsView({
       </div>
 
       <p className="text-center font-mono text-[11px] text-granite-500">
-        Analyzed {formatDateTime(meta.analyzedAt)} · model {meta.model} · ref {meta.requestId.slice(0, 8)}
+        {t.footer(formatDateTime(meta.analyzedAt, locale), meta.model, meta.requestId.slice(0, 8))}
       </p>
     </div>
   );

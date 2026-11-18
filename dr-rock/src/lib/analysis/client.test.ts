@@ -59,6 +59,14 @@ describe("requestAnalysis", () => {
     const form = fetchMock.mock.calls[0][1]?.body as FormData;
     expect(JSON.parse(form.get("context") as string)).toEqual({ location: "Dover" });
   });
+
+  it("sends the report language when given", async () => {
+    const fetchMock = vi.fn(async () => Response.json(okBody));
+    vi.stubGlobal("fetch", fetchMock);
+    await requestAnalysis(new Blob(["x"]), undefined, undefined, "es");
+    const form = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as FormData;
+    expect(form.get("lang")).toBe("es");
+  });
 });
 
 describe("requestAnalysis with background jobs (Netlify)", () => {

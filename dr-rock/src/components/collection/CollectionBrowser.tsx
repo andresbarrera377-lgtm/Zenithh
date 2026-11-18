@@ -6,24 +6,25 @@ import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState, Notice } from "@/components/ui/primitives";
 import { useDiscoveries } from "@/lib/collection/store";
 import type { Discovery } from "@/lib/collection/types";
+import { useMessages } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 import { DiscoveryCard } from "./DiscoveryCard";
 
 const FILTERS = [
-  { id: "all", label: "All" },
-  { id: "favorites", label: "Favourites" },
-  { id: "fossils", label: "Fossil-like" },
-  { id: "igneous", label: "Igneous" },
-  { id: "sedimentary", label: "Sedimentary" },
-  { id: "metamorphic", label: "Metamorphic" },
-  { id: "mineral", label: "Minerals" },
+  { id: "all" },
+  { id: "favorites" },
+  { id: "fossils" },
+  { id: "igneous" },
+  { id: "sedimentary" },
+  { id: "metamorphic" },
+  { id: "mineral" },
 ] as const;
 type FilterId = (typeof FILTERS)[number]["id"];
 
 const SORTS = [
-  { id: "newest", label: "Newest first" },
-  { id: "oldest", label: "Oldest first" },
-  { id: "name", label: "Name (A–Z)" },
+  { id: "newest" },
+  { id: "oldest" },
+  { id: "name" },
 ] as const;
 type SortId = (typeof SORTS)[number]["id"];
 
@@ -41,6 +42,7 @@ function matchesFilter(d: Discovery, f: FilterId): boolean {
 }
 
 export function CollectionBrowser() {
+  const t = useMessages("collection");
   const { data, loading, error } = useDiscoveries();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterId>("all");
@@ -83,8 +85,8 @@ export function CollectionBrowser() {
 
   if (error) {
     return (
-      <Notice kind="error" title="Your collection could not be opened">
-        {error} Private browsing modes may block local storage.
+      <Notice kind="error" title={t.openError}>
+        {t.openErrorText}
       </Notice>
     );
   }
@@ -93,11 +95,11 @@ export function CollectionBrowser() {
     return (
       <EmptyState
         icon={<Gem className="h-6 w-6" />}
-        title="Your collection is empty"
-        description="Analyze a rock and tap “Save analysis” to start your personal collection of discoveries."
+        title={t.emptyTitle}
+        description={t.emptyText}
         action={
           <ButtonLink href="/app/scan" icon={<ScanLine className="h-4 w-4" />}>
-            Scan your first rock
+            {t.scanFirst}
           </ButtonLink>
         }
       />
@@ -108,18 +110,18 @@ export function CollectionBrowser() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
         <label className="relative flex-1">
-          <span className="sr-only">Search your collection</span>
+          <span className="sr-only">{t.search}</span>
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-granite-400" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search names, notes and tags…"
+            placeholder={t.searchPlaceholder}
             className="h-11 w-full rounded-xl border-0 bg-granite-900 pl-11 pr-4 text-sm text-chalk-50 ring-1 ring-inset ring-granite-600/70 placeholder:text-granite-500 focus:outline-none focus:ring-2 focus:ring-mineral-400"
           />
         </label>
         <label className="flex items-center gap-2 text-sm text-granite-400">
-          Sort
+          {t.sort}
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortId)}
@@ -127,7 +129,7 @@ export function CollectionBrowser() {
           >
             {SORTS.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.label}
+                {t.sorts[s.id]}
               </option>
             ))}
           </select>
@@ -138,7 +140,7 @@ export function CollectionBrowser() {
         <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
           {FILTERS.map((f) => (
             <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>
-              {f.label}
+              {t.filters[f.id]}
             </Chip>
           ))}
         </div>
@@ -146,17 +148,17 @@ export function CollectionBrowser() {
 
       {allTags.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="label-mono text-granite-500">Tags</span>
-          {allTags.map((t) => (
-            <Chip key={t} small active={tag === t} onClick={() => setTag(tag === t ? null : t)}>
-              #{t}
+          <span className="label-mono text-granite-500">{t.tags}</span>
+          {allTags.map((tg) => (
+            <Chip key={tg} small active={tag === tg} onClick={() => setTag(tag === tg ? null : tg)}>
+              #{tg}
             </Chip>
           ))}
         </div>
       )}
 
       {items.length === 0 ? (
-        <EmptyState icon={<Search className="h-6 w-6" />} title="No discoveries match" description="Try a different search, filter or tag." />
+        <EmptyState icon={<Search className="h-6 w-6" />} title={t.noMatchTitle} description={t.noMatchText} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((d) => (
@@ -167,8 +169,7 @@ export function CollectionBrowser() {
 
       <p className="flex items-center gap-2 text-xs text-granite-500">
         <HardDrive className="h-3.5 w-3.5" />
-        {data.length} {data.length === 1 ? "discovery" : "discoveries"} stored privately on this device. Clearing your browser data
-        will remove them.
+        {t.storedNote(data.length)}
       </p>
     </div>
   );

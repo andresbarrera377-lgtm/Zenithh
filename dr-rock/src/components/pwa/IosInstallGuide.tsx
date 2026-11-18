@@ -3,35 +3,10 @@
 import { Check, Compass, Plus, Share, SquarePlus, X } from "lucide-react";
 import { useId, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
+import { useMessages } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
-const STEPS: Array<{ icon: ReactNode; title: string; text: ReactNode }> = [
-  {
-    icon: <Compass className="h-5 w-5" />,
-    title: "Open Dr.Rock in Safari",
-    text: "Go to dr-rock.netlify.app in Safari (recent iOS versions also allow Chrome).",
-  },
-  {
-    icon: <Share className="h-5 w-5" />,
-    title: "Tap the Share button",
-    text: (
-      <>
-        The square with an arrow pointing up <Share className="inline h-3.5 w-3.5 align-[-2px]" aria-label="Share" />, at the bottom of
-        the screen (top on iPad).
-      </>
-    ),
-  },
-  {
-    icon: <SquarePlus className="h-5 w-5" />,
-    title: "Choose “Add to Home Screen”",
-    text: "Scroll down the list if you don't see it. Keep “Open as Web App” on.",
-  },
-  {
-    icon: <Plus className="h-5 w-5" />,
-    title: "Tap “Add”",
-    text: "Dr.Rock appears on your Home Screen and opens full screen, like any app.",
-  },
-];
+const STEP_ICONS: ReactNode[] = [<Compass key="1" className="h-5 w-5" />, <Share key="2" className="h-5 w-5" />, <SquarePlus key="3" className="h-5 w-5" />, <Plus key="4" className="h-5 w-5" />];
 
 /**
  * "Install on iPhone": iOS has no install prompt for web apps and Apple only allows App Store
@@ -41,7 +16,7 @@ export function IosInstallGuide({
   className,
   size = "lg",
   variant = "secondary",
-  label = "Install on iPhone",
+  label,
 }: {
   className?: string;
   size?: "sm" | "md" | "lg";
@@ -49,12 +24,30 @@ export function IosInstallGuide({
   label?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const t = useMessages("pwa").ios;
+  const close = useMessages("common").close;
+  const [s1, s2, s3, s4] = t.steps;
+  const steps: Array<{ icon: ReactNode; title: string; text: ReactNode }> = [
+    { icon: STEP_ICONS[0], ...s1 },
+    {
+      icon: STEP_ICONS[1],
+      title: s2.title,
+      text: (
+        <>
+          {s2.before} <Share className="inline h-3.5 w-3.5 align-[-2px]" aria-label={t.share} />
+          {s2.after}
+        </>
+      ),
+    },
+    { icon: STEP_ICONS[2], ...s3 },
+    { icon: STEP_ICONS[3], ...s4 },
+  ];
   const titleId = useId();
 
   return (
     <>
       <Button type="button" size={size} variant={variant} className={className} icon={<SquarePlus className="h-4 w-4" />} onClick={() => dialog.current?.showModal()}>
-        {label}
+        {label ?? t.button}
       </Button>
       <dialog
         ref={dialog}
@@ -67,27 +60,27 @@ export function IosInstallGuide({
         <div className="space-y-4 p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <p className="label-mono text-[10px] text-mineral-400">iPhone &amp; iPad</p>
+              <p className="label-mono text-[10px] text-mineral-400">{t.eyebrow}</p>
               <h2 id={titleId} className="font-display text-xl font-semibold text-chalk-50">
-                Install Dr.Rock in 4 steps
+                {t.title}
               </h2>
             </div>
             <button
               type="button"
               onClick={() => dialog.current?.close()}
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-granite-400 hover:bg-granite-800 hover:text-chalk-50"
-              aria-label="Close"
+              aria-label={close}
             >
               <X className="h-5 w-5" />
             </button>
           </div>
           <ol className="space-y-2.5">
-            {STEPS.map((step, i) => (
+            {steps.map((step, i) => (
               <li key={step.title} className="flex gap-3 rounded-2xl bg-carbon-950/60 p-3 ring-1 ring-granite-800">
                 <span
                   className={cn(
                     "relative grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1",
-                    i === STEPS.length - 1 ? "bg-mineral-400 text-carbon-950 ring-mineral-300" : "bg-granite-900 text-mineral-400 ring-granite-700",
+                    i === steps.length - 1 ? "bg-mineral-400 text-carbon-950 ring-mineral-300" : "bg-granite-900 text-mineral-400 ring-granite-700",
                   )}
                 >
                   {step.icon}
@@ -104,7 +97,7 @@ export function IosInstallGuide({
           </ol>
           <p className="flex items-start gap-2 text-xs leading-relaxed text-granite-500">
             <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-mineral-400" />
-            No App Store needed. Your collection stays on your device; analyzing a rock needs an internet connection.
+            {t.note}
           </p>
         </div>
       </dialog>
