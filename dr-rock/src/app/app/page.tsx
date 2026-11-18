@@ -4,6 +4,7 @@ import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { AiStatusIndicator } from "@/components/app-shell/AiStatus";
 import { HeroSpecimen } from "@/components/brand/HeroSpecimen";
+import { InstallHint } from "@/components/pwa/InstallHint";
 import { RecentDiscoveries } from "@/components/collection/RecentDiscoveries";
 import { ButtonLink } from "@/components/ui/Button";
 import { Eyebrow, Panel } from "@/components/ui/primitives";
@@ -76,6 +77,8 @@ export default function HomePage() {
         <QuickAction href="/app/scan" icon={<Camera className="h-6 w-6" />} title="Take a photo" text="Use your camera to capture a specimen." />
         <QuickAction href="/app/scan" icon={<ImageUp className="h-6 w-6" />} title="Upload image" text="Analyze a photo from your gallery or computer." />
       </section>
+
+      <InstallHint />
 
       <section className="space-y-4" aria-labelledby="recent-title">
         <div className="flex items-end justify-between">

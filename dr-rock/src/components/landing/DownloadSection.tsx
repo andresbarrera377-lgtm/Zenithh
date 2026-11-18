@@ -1,6 +1,7 @@
 import { Download, Globe, Laptop, Smartphone, TabletSmartphone } from "lucide-react";
 import type { ReactNode } from "react";
 import { InstallButton } from "@/components/pwa/InstallButton";
+import { IosInstallGuide } from "@/components/pwa/IosInstallGuide";
 import { ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { Badge, Panel } from "@/components/ui/primitives";
 import { siteConfig } from "@/lib/site";
@@ -46,7 +47,8 @@ function PlatformCard({
 
 /**
  * Download options. Every button leads to something real: the Android APK hosted on this site,
- * the browser install prompt (PWA) on computers, and Add to Home Screen on iPhone.
+ * the browser install prompt (PWA) on computers, and a guided Add to Home Screen on iPhone
+ * (Apple does not allow downloading apps from outside the App Store).
  */
 export function DownloadSection() {
   const apk = siteConfig.androidApk;
@@ -93,14 +95,10 @@ export function DownloadSection() {
         <PlatformCard
           icon={<TabletSmartphone className="h-5 w-5" />}
           name="iPhone & iPad"
-          action={
-            <ButtonLink href="/app" size="lg" variant="secondary" className="w-full" icon={<Globe className="h-4 w-4" />}>
-              Open in Safari
-            </ButtonLink>
-          }
-          footnote="An App Store version is not available yet."
+          action={<IosInstallGuide className="w-full" />}
+          footnote="Apple only allows apps from the App Store to be downloaded, so on iPhone Dr.Rock installs from Safari, with no App Store needed."
         >
-          Open Dr.Rock in Safari, tap Share and choose “Add to Home Screen”. It then opens full screen, like an app.
+          Add Dr.Rock to your Home Screen from Safari in four taps: its own icon, full screen and a launch screen, like any app.
         </PlatformCard>
       </div>
       <p className="text-center text-xs text-granite-500">

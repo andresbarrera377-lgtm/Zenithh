@@ -5,6 +5,7 @@ import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
+import { IOS_SPLASH_SCREENS, splashFile, splashMedia } from "@/lib/brand/ios-splash";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -20,6 +21,8 @@ export const metadata: Metadata = {
     capable: true,
     title: siteConfig.name,
     statusBarStyle: "black-translucent",
+    // Launch screens for the home-screen app on iPhone/iPad (one per screen size).
+    startupImage: IOS_SPLASH_SCREENS.map((screen) => ({ url: splashFile(screen), media: splashMedia(screen) })),
   },
   formatDetection: { telephone: false },
   openGraph: {

@@ -2,7 +2,7 @@
  * Renders the source images @capacitor/assets needs, from the same mark geometry the web
  * app uses for its PWA icons, so the Android icon always matches the brand.
  *
- * Run from dr-rock-android/:  ../dr-rock/node_modules/.bin/tsx scripts/icon-sources.ts
+ * Run from dr-rock-mobile/:  ../dr-rock/node_modules/.bin/tsx scripts/icon-sources.ts
  * then:                       npx capacitor-assets generate --android
  */
 import { mkdirSync } from "node:fs";

@@ -1,0 +1,20 @@
+{
+  "name": "dr-rock-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Android and iOS apps for Dr.Rock: native shells that open the deployed Dr.Rock web app.",
+  "scripts": {
+    "sync": "cap sync",
+    "icons": "capacitor-assets generate --android --ios",
+    "build:apk": "node scripts/build-apk.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/ios": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2"
+  }
+}
