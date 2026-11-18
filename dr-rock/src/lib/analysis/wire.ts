@@ -2,14 +2,15 @@ import { z } from "zod";
 import { CLASSIFICATIONS, IMAGE_QUALITIES, VERDICTS, type AgeEstimate, type RockAnalysis } from "./schema";
 
 /**
- * Model-facing version of the report, sent to Claude as the structured-output format.
+ * Model-facing version of the report: the JSON Schema the model is asked to follow (sent in the
+ * system prompt) and validated against on the server.
  *
- * Structured outputs compile the JSON schema into a grammar. Nullable fields are union types,
- * whose compilation cost grows exponentially, and the full report with them exceeded the API's
- * grammar size limit ("compiled grammar is too large"). This schema therefore has no unions and
- * no optional fields: "not applicable / unknown" is written as "" for text and -1 for numbers,
- * and `fromWire()` turns those back into the app's `null`s. Field descriptions double as
- * instructions for the model.
+ * The full report is too large for grammar-constrained structured outputs (the API rejects it with
+ * "compiled grammar is too large"), so it is requested as plain JSON and validated here instead:
+ * output that does not match is reported as an error, never shown. The schema avoids unions and
+ * optional fields to stay easy to follow: "not applicable / unknown" is written as "" for text and
+ * -1 for numbers, and `fromWire()` turns those back into the app's `null`s. Field descriptions
+ * double as instructions for the model.
  */
 
 const UNKNOWN = "Use '' when unknown or not applicable.";
@@ -222,4 +223,31 @@ export function toWire(analysis: RockAnalysis): RockAnalysisWire {
       noFossilExplanation: paleontology.noFossilExplanation ?? "",
     },
   };
+}
+
+/** The report's JSON Schema as text, embedded in the system prompt as the output contract. */
+export const WIRE_JSON_SCHEMA = JSON.stringify(z.toJSONSchema(RockAnalysisWireSchema));
+
+export type WireParseResult = { ok: true; value: RockAnalysisWire } | { ok: false; reason: string };
+
+/**
+ * Extracts the JSON object from the model's reply and validates it against the wire schema.
+ * Tolerates a Markdown code fence or stray text around the object; nothing else is repaired.
+ */
+export function parseWireReport(reply: string): WireParseResult {
+  const start = reply.indexOf("{");
+  const end = reply.lastIndexOf("}");
+  if (start === -1 || end <= start) return { ok: false, reason: "no JSON object in the reply" };
+  let json: unknown;
+  try {
+    json = JSON.parse(reply.slice(start, end + 1));
+  } catch (error) {
+    return { ok: false, reason: `invalid JSON: ${(error as Error).message}` };
+  }
+  const parsed = RockAnalysisWireSchema.safeParse(json);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`);
+    return { ok: false, reason: `schema mismatch: ${issues.join("; ")}` };
+  }
+  return { ok: true, value: parsed.data };
 }

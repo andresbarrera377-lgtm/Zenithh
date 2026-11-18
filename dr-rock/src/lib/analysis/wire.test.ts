@@ -2,7 +2,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { describe, expect, it } from "vitest";
 import { EXAMPLE_ANALYSIS } from "./example";
 import { RockAnalysisSchema } from "./schema";
-import { RockAnalysisWireSchema, fromWire, toWire } from "./wire";
+import { RockAnalysisWireSchema, WIRE_JSON_SCHEMA, fromWire, parseWireReport, toWire } from "./wire";
 
 /** Counts the schema features the structured-outputs grammar limits are about. */
 function complexity(schema: unknown) {
@@ -24,7 +24,7 @@ function complexity(schema: unknown) {
 }
 
 describe("model-facing (wire) schema", () => {
-  it("has no union types or optional fields, so the structured-output grammar stays small", () => {
+  it("has no union types or optional fields (simple for the model to follow exactly)", () => {
     const format = zodOutputFormat(RockAnalysisWireSchema) as unknown as { schema: unknown };
     expect(complexity(format.schema)).toEqual({ unions: 0, optional: 0 });
   });
@@ -62,5 +62,30 @@ describe("model-facing (wire) schema", () => {
     const wire = toWire(EXAMPLE_ANALYSIS);
     wire.ageAndHistory.rockAge.minMa = 0;
     expect(fromWire(wire).ageAndHistory.rockAge.minMa).toBe(0);
+  });
+});
+
+describe("parseWireReport", () => {
+  const good = JSON.stringify(toWire(EXAMPLE_ANALYSIS));
+
+  it("accepts a bare object, a fenced object and surrounding text", () => {
+    expect(parseWireReport(good).ok).toBe(true);
+    expect(parseWireReport("```json\n" + good + "\n```").ok).toBe(true);
+    expect(parseWireReport("Here is the report:\n" + good).ok).toBe(true);
+  });
+
+  it("explains why a reply is rejected", () => {
+    expect(parseWireReport("I cannot help with that.")).toMatchObject({ ok: false, reason: "no JSON object in the reply" });
+    expect(parseWireReport("{ not json }")).toMatchObject({ ok: false });
+    const missing = JSON.parse(good);
+    delete missing.verdict;
+    const result = parseWireReport(JSON.stringify(missing));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain("verdict");
+  });
+
+  it("ships the schema the parser validates against", () => {
+    const schema = JSON.parse(WIRE_JSON_SCHEMA) as { properties: Record<string, unknown> };
+    expect(Object.keys(schema.properties)).toEqual(Object.keys(RockAnalysisWireSchema.shape));
   });
 });

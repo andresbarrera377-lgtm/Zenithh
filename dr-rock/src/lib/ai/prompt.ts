@@ -1,9 +1,10 @@
 import type { FieldContext } from "@/lib/analysis/schema";
+import { WIRE_JSON_SCHEMA } from "@/lib/analysis/wire";
 
 /**
- * System prompt for the Dr.Rock analysis engine.
- * The structured-output schema (see lib/analysis/schema.ts) carries the per-field
- * instructions; this prompt carries the scientific principles that apply everywhere.
+ * System prompt for the Dr.Rock analysis engine: the scientific principles that apply everywhere,
+ * followed by the output contract (the report's JSON Schema, whose field descriptions carry the
+ * per-field instructions; see lib/analysis/wire.ts).
  */
 export const SYSTEM_PROMPT = `You are the analysis engine of Dr.Rock, an educational geology app. You combine the expertise of a field geologist, a mineralogist and a paleontologist. You receive one photograph of a rock, mineral or possible fossil, sometimes with field notes from the user, and you return a structured scientific report.
 
@@ -40,6 +41,17 @@ function sanitize(value: string | undefined): string | undefined {
   // Prevent the notes from closing or opening our delimiter tags.
   return value.replace(/[<>]/g, (c) => (c === "<" ? "‹" : "›")).trim() || undefined;
 }
+
+const OUTPUT_CONTRACT = `Output format:
+
+Reply with exactly one JSON object and nothing else: no Markdown, no code fences, no text before or after it. It must validate against the JSON Schema below: include every property, add no other properties, and spell enum values exactly as listed. Where a field description says so, write "" for text and -1 for numbers that are unknown or do not apply.
+
+<json_schema>
+${WIRE_JSON_SCHEMA}
+</json_schema>`;
+
+/** Full system prompt: principles + output contract. Static, so it is identical on every request. */
+export const ANALYSIS_SYSTEM_PROMPT = `${SYSTEM_PROMPT}\n\n${OUTPUT_CONTRACT}`;
 
 export function buildUserPrompt(context: FieldContext | undefined): string {
   const location = sanitize(context?.location);

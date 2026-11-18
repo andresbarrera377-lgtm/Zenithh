@@ -110,7 +110,8 @@ describe("POST /api/analyze", () => {
     expect(body.ok).toBe(true);
     expect(lastBetaHeader).toBeUndefined();
     expect(lastRequestBody).not.toHaveProperty("fallbacks");
-    expect(lastRequestBody).toHaveProperty("output_config.format");
+    expect(lastRequestBody).not.toHaveProperty("output_config.format");
+    expect(String(lastRequestBody?.system)).toContain("<json_schema>");
   });
 
   it("returns a validated, normalized report from the model", async () => {
@@ -127,10 +128,12 @@ describe("POST /api/analyze", () => {
     expect(body.meta.model).toBe("claude-opus-5-5");
 
     // The request sent to the model: image + structured output schema + server-side fallback.
-    const sent = lastRequestBody as { messages: Array<{ content: Array<{ type: string; text?: string }> }>; output_config: { format: { type: string } }; fallbacks: string };
+    const sent = lastRequestBody as { messages: Array<{ content: Array<{ type: string; text?: string }> }>; output_config: Record<string, unknown>;
+      system: unknown; fallbacks: string };
     expect(sent.messages[0].content[0].type).toBe("image");
     expect(sent.messages[0].content[1].text).toContain("Gotland, Sweden");
-    expect(sent.output_config.format.type).toBe("json_schema");
+    expect(sent.output_config).toEqual({ effort: "high" });
+    expect(String(sent.system)).toContain("<json_schema>");
     expect(sent.fallbacks).toBe("default");
   });
 
@@ -150,6 +153,25 @@ describe("POST /api/analyze", () => {
     const { status, body } = await post(form);
     expect(status).toBe(422);
     expect(body).toMatchObject({ ok: false, error: { code: "AI_REFUSED" } });
+  });
+
+  it("accepts a report wrapped in a Markdown code fence", async () => {
+    nextReply = { body: message([{ type: "text", text: "```json\n" + JSON.stringify(toWire(EXAMPLE_ANALYSIS)) + "\n```" }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    const { status, body } = await post(form);
+    expect(status).toBe(200);
+    expect(body.ok).toBe(true);
+  });
+
+  it("rejects JSON that does not match the report schema", async () => {
+    const partial = { ...toWire(EXAMPLE_ANALYSIS), verdict: "definitely_a_dinosaur" };
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(partial) }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    const { status, body } = await post(form);
+    expect(status).toBe(502);
+    expect(body).toMatchObject({ ok: false, error: { code: "AI_INVALID_RESPONSE" } });
   });
 
   it("reports malformed model output instead of showing it", async () => {

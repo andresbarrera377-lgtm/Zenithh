@@ -1,13 +1,11 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { normalizeAnalysis } from "@/lib/analysis/normalize";
 import type { AnalysisErrorCode, FieldContext, RockAnalysis } from "@/lib/analysis/schema";
-import { RockAnalysisWireSchema, fromWire, type RockAnalysisWire } from "@/lib/analysis/wire";
+import { fromWire, parseWireReport } from "@/lib/analysis/wire";
 import type { AllowedMediaType } from "@/lib/server/image-validation";
 import { getAiConfig } from "./config";
-import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
+import { ANALYSIS_SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
 
 export class AnalysisError extends Error {
   /** Upstream API status + message, returned to clients only when DR_ROCK_DEBUG_ERRORS=on. */
@@ -66,32 +64,34 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
     { type: "text" as const, text: buildUserPrompt(context) },
   ];
 
-  let response: { stop_reason: string | null; parsed_output: RockAnalysisWire | null | undefined; model: string };
+  // The report is too large for grammar-constrained structured outputs, so it is requested as
+  // JSON described in the system prompt and validated below (see lib/analysis/wire.ts).
+  let response: { stop_reason: string | null; content: ReadonlyArray<{ type: string; text?: unknown }>; model: string };
   try {
     response = config.serverFallbacks
-      ? await getClient().beta.messages.parse(
+      ? await getClient().beta.messages.create(
           {
             model: config.model,
             max_tokens: 16000,
             thinking: { type: "adaptive" },
-            output_config: { effort: config.effort, format: betaZodOutputFormat(RockAnalysisWireSchema) },
+            output_config: { effort: config.effort },
             // Opt-in server-side fallback: if the model declines for policy reasons, the API
             // retries on Anthropic's recommended fallback model instead of failing outright.
             betas: ["server-side-fallback-2026-07-01"],
             fallbacks: "default",
-            system: SYSTEM_PROMPT,
+            system: ANALYSIS_SYSTEM_PROMPT,
             messages: [{ role: "user", content: userContent }],
           },
           { signal },
         )
-      : // Gateway-compatible path: GA structured outputs, no beta headers.
-        await getClient().messages.parse(
+      : // Gateway-compatible path (e.g. Netlify AI Gateway): no beta headers.
+        await getClient().messages.create(
           {
             model: config.model,
             max_tokens: 16000,
             thinking: { type: "adaptive" },
-            output_config: { effort: config.effort, format: zodOutputFormat(RockAnalysisWireSchema) },
-            system: SYSTEM_PROMPT,
+            output_config: { effort: config.effort },
+            system: ANALYSIS_SYSTEM_PROMPT,
             messages: [{ role: "user", content: userContent }],
           },
           { signal },
@@ -113,11 +113,19 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
   if (response.stop_reason === "max_tokens") {
     throw new AnalysisError("AI_INVALID_RESPONSE", 502, "The AI response was incomplete. Please try again.");
   }
-  if (!response.parsed_output) {
-    throw new AnalysisError("AI_INVALID_RESPONSE", 502, "The AI returned a report in an unexpected format. Please try again.");
+
+  const reply = response.content
+    .map((block) => (block.type === "text" && typeof block.text === "string" ? block.text : ""))
+    .join("");
+  const report = parseWireReport(reply);
+  if (!report.ok) {
+    console.error(`[dr-rock] AI report rejected: ${report.reason.slice(0, 500)}`);
+    const error = new AnalysisError("AI_INVALID_RESPONSE", 502, "The AI returned a report in an unexpected format. Please try again.");
+    error.detail = report.reason.slice(0, 500);
+    throw error;
   }
 
-  return { analysis: normalizeAnalysis(fromWire(response.parsed_output)), model: response.model };
+  return { analysis: normalizeAnalysis(fromWire(report.value)), model: response.model };
 }
 
 /** Server-side log of the upstream failure (status + API message; never the key or the image). */
