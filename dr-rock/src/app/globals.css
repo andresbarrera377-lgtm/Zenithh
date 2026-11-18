@@ -252,6 +252,10 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  /* Mobile tab bar: safe area plus the strip reserved for a hosting badge (see --host-badge-h). */
+  .safe-bottom-tabbar {
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--host-badge-h));
+  }
   .safe-top {
     padding-top: env(safe-area-inset-top);
   }
@@ -266,4 +270,14 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Netlify's free plan injects a fixed "Powered by Netlify" badge at the bottom-right of every page
+   (it cannot be hidden on that plan). When its tag is present, reserve a strip under the mobile
+   tab bar so the badge sits below the navigation instead of covering the last tabs. */
+:root {
+  --host-badge-h: 0px;
+}
+html:has(script[data-nf-variant="public"][data-account-tier="free"]) {
+  --host-badge-h: 3.5rem;
 }

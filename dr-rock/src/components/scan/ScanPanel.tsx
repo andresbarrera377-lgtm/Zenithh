@@ -189,7 +189,7 @@ export function ScanPanel() {
       {hasImage && (
         <>
           <FieldContextForm />
-          <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 -mx-4 bg-gradient-to-t from-carbon-950 via-carbon-950/95 to-transparent px-4 pb-3 pt-8 sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:bg-none lg:p-0">
+          <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom)+var(--host-badge-h))] z-30 -mx-4 bg-gradient-to-t from-carbon-950 via-carbon-950/95 to-transparent px-4 pb-3 pt-8 sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:bg-none lg:p-0">
             <Button
               size="xl"
               className="w-full"

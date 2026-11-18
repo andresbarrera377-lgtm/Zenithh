@@ -60,14 +60,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="relative pb-28 lg:pb-12 lg:pl-64">
+      <main className="relative pb-[calc(7rem+var(--host-badge-h))] lg:pb-12 lg:pl-64">
         <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">{children}</div>
       </main>
 
       {/* Mobile bottom tab bar */}
       <nav
         aria-label="Main"
-        className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t hairline bg-carbon-950/90 backdrop-blur-xl lg:hidden"
+        className="safe-bottom-tabbar fixed inset-x-0 bottom-0 z-40 border-t hairline bg-carbon-950/90 backdrop-blur-xl lg:hidden"
       >
         <Suspense fallback={<TabBarNav pathname="" />}>
           <ActiveTabBarNav />
