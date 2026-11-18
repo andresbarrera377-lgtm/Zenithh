@@ -3,7 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { normalizeAnalysis } from "@/lib/analysis/normalize";
-import { RockAnalysisSchema, type AnalysisErrorCode, type FieldContext, type RockAnalysis } from "@/lib/analysis/schema";
+import type { AnalysisErrorCode, FieldContext, RockAnalysis } from "@/lib/analysis/schema";
+import { RockAnalysisWireSchema, fromWire, type RockAnalysisWire } from "@/lib/analysis/wire";
 import type { AllowedMediaType } from "@/lib/server/image-validation";
 import { getAiConfig } from "./config";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
@@ -65,7 +66,7 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
     { type: "text" as const, text: buildUserPrompt(context) },
   ];
 
-  let response: { stop_reason: string | null; parsed_output: RockAnalysis | null | undefined; model: string };
+  let response: { stop_reason: string | null; parsed_output: RockAnalysisWire | null | undefined; model: string };
   try {
     response = config.serverFallbacks
       ? await getClient().beta.messages.parse(
@@ -73,7 +74,7 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
             model: config.model,
             max_tokens: 16000,
             thinking: { type: "adaptive" },
-            output_config: { effort: config.effort, format: betaZodOutputFormat(RockAnalysisSchema) },
+            output_config: { effort: config.effort, format: betaZodOutputFormat(RockAnalysisWireSchema) },
             // Opt-in server-side fallback: if the model declines for policy reasons, the API
             // retries on Anthropic's recommended fallback model instead of failing outright.
             betas: ["server-side-fallback-2026-07-01"],
@@ -89,7 +90,7 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
             model: config.model,
             max_tokens: 16000,
             thinking: { type: "adaptive" },
-            output_config: { effort: config.effort, format: zodOutputFormat(RockAnalysisSchema) },
+            output_config: { effort: config.effort, format: zodOutputFormat(RockAnalysisWireSchema) },
             system: SYSTEM_PROMPT,
             messages: [{ role: "user", content: userContent }],
           },
@@ -116,7 +117,7 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
     throw new AnalysisError("AI_INVALID_RESPONSE", 502, "The AI returned a report in an unexpected format. Please try again.");
   }
 
-  return { analysis: normalizeAnalysis(response.parsed_output), model: response.model };
+  return { analysis: normalizeAnalysis(fromWire(response.parsed_output)), model: response.model };
 }
 
 /** Server-side log of the upstream failure (status + API message; never the key or the image). */

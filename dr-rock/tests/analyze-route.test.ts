@@ -8,6 +8,7 @@ import type { AddressInfo } from "node:net";
 import sharp from "sharp";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EXAMPLE_ANALYSIS } from "@/lib/analysis/example";
+import { toWire } from "@/lib/analysis/wire";
 import type { AnalyzeResponse } from "@/lib/analysis/schema";
 
 type StubReply = { status?: number; body: unknown };
@@ -73,7 +74,7 @@ async function post(form: FormData): Promise<{ status: number; body: AnalyzeResp
 
 describe("POST /api/analyze", () => {
   it("sends the server-side fallback beta by default", async () => {
-    nextReply = { body: message([{ type: "text", text: JSON.stringify(EXAMPLE_ANALYSIS) }]) };
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
     const form = new FormData();
     form.append("image", await photo(), "rock.jpg");
     const { status } = await post(form);
@@ -101,7 +102,7 @@ describe("POST /api/analyze", () => {
 
   it("uses GA structured outputs with no beta header when fallbacks are off (AI gateways)", async () => {
     process.env.DR_ROCK_SERVER_FALLBACKS = "off";
-    nextReply = { body: message([{ type: "text", text: JSON.stringify(EXAMPLE_ANALYSIS) }]) };
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
     const form = new FormData();
     form.append("image", await photo(), "rock.jpg");
     const { status, body } = await post(form);
@@ -113,7 +114,7 @@ describe("POST /api/analyze", () => {
   });
 
   it("returns a validated, normalized report from the model", async () => {
-    nextReply = { body: message([{ type: "text", text: JSON.stringify(EXAMPLE_ANALYSIS) }]) };
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
     const form = new FormData();
     form.append("image", await photo(), "rock.jpg");
     form.append("context", JSON.stringify({ location: "Gotland, Sweden" }));

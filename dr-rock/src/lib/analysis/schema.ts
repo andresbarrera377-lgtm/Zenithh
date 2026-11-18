@@ -3,11 +3,10 @@ import { z } from "zod";
 /**
  * Structured report returned by the AI analysis.
  *
- * This schema is the single contract between the model, the API route and the UI:
- * - it is converted to JSON Schema and sent to Claude as a structured-output format,
- *   so field descriptions double as instructions for the model;
- * - the API validates the model output against it before returning anything;
- * - the UI renders it section by section.
+ * This schema is the contract between the API route and the UI (the UI renders it section by
+ * section). The model itself fills a union-free twin of it, `RockAnalysisWireSchema` in
+ * `wire.ts`, which keeps the structured-output grammar within the API's size limits; the
+ * route converts that with `fromWire()` and then normalizes it.
  *
  * Numeric ranges (0–100, Mohs 1–10, …) are enforced after parsing in `normalize.ts`
  * because structured outputs do not support numeric min/max constraints.
