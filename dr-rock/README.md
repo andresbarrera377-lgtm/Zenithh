@@ -46,7 +46,8 @@ npm run dev                     # http://localhost:3000
 | `ANTHROPIC_API_KEY` | Sí, para analizar | Clave de la API de Anthropic (créala en [platform.claude.com](https://platform.claude.com/)). Solo se lee en el servidor y nunca llega al navegador. |
 | `DR_ROCK_MODEL` | No | Modelo de IA (por defecto `claude-opus-5-5`). |
 | `DR_ROCK_EFFORT` | No | `low`, `medium`, `high` (por defecto), `xhigh` o `max`. `medium` responde más rápido. |
-| `DR_ROCK_TIMEOUT_SECONDS`, `DR_ROCK_MAX_RETRIES` | No | Tiempo máximo por intento (por defecto 140 s) y reintentos (por defecto 1). En hostings con funciones cortas, como Netlify (60 s), usa 50 y 0. |
+| `DR_ROCK_TIMEOUT_SECONDS`, `DR_ROCK_MAX_RETRIES` | No | Tiempo máximo por intento (por defecto 140 s) y reintentos (por defecto 1). Si el hosting corta las peticiones antes, bájalos para que tiempo × (reintentos + 1) quepa en su límite (en Netlify no hace falta: el modo trabajo tiene 15 min). |
+| `DR_ROCK_JOB_MODE` | No | `netlify-background` en Netlify: cada análisis se hace en una función de fondo (hasta 15 min) y la app consulta el resultado, porque las funciones normales de Netlify se cortan a los ~30 s. |
 | `DR_ROCK_SERVER_FALLBACKS` | No | `off` para gateways de IA que no reenvían cabeceras beta (Netlify AI Gateway). Desactiva el modelo de respaldo ante rechazos. |
 | `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` | No | Límite de análisis por cliente (por defecto 12 cada 600 s). |
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | URL pública del despliegue (metadatos). |
@@ -71,7 +72,7 @@ Sin `ANTHROPIC_API_KEY` la app funciona (biblioteca y colección), pero el anál
 La app necesita un servidor Node (la ruta `/api/analyze` protege la clave), así que **no puede alojarse en GitHub Pages**. Opciones recomendadas:
 
 - **Vercel**: importa el repositorio, elige `dr-rock` como *Root Directory*, añade `ANTHROPIC_API_KEY` en *Environment Variables* y despliega.
-- **Netlify**: `netlify.toml` ya está listo. Las funciones de Netlify cortan a los 60 s, así que configura `DR_ROCK_EFFORT=medium`, `DR_ROCK_TIMEOUT_SECONDS=50` y `DR_ROCK_MAX_RETRIES=0`, y `DR_ROCK_SERVER_FALLBACKS=off`. Con el AI Gateway de Netlify (activo por defecto en planes de créditos) no hace falta `ANTHROPIC_API_KEY`: Netlify la inyecta y cobra en créditos. Si prefieres tu propia clave, añádela con alcance *Functions* y el gateway se aparta. Cualquier cambio de variables necesita un nuevo despliegue.
+- **Netlify**: `netlify.toml` ya está listo. Las funciones normales de Netlify se cortan a los ~30 s, así que configura `DR_ROCK_JOB_MODE=netlify-background` (el análisis corre en `netlify/functions/analyze-background.mts` y la foto se guarda en Netlify Blobs solo hasta que la función la recoge), `DR_ROCK_EFFORT=medium` y `DR_ROCK_SERVER_FALLBACKS=off`. Con el AI Gateway de Netlify (activo por defecto en planes de créditos) no hace falta `ANTHROPIC_API_KEY`: Netlify la inyecta y cobra en créditos. Si prefieres tu propia clave, añádela con alcance *Functions* y el gateway se aparta. Cualquier cambio de variables necesita un nuevo despliegue.
 - Cualquier hosting con Node 20+: `npm run build && npm start`.
 
 ## Teléfono y PC

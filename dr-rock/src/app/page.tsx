@@ -94,7 +94,7 @@ const FAQ = [
   },
   {
     q: "What happens to my photos?",
-    a: "Photos are resized and stripped of metadata (including GPS) on your device, sent to the AI only to generate your report, and not stored on Dr.Rock's servers. Your collection is saved locally in your browser.",
+    a: "Photos are resized and stripped of metadata (including GPS) on your device, sent to the AI only to generate your report, and not kept on Dr.Rock's servers. Your collection is saved locally in your browser.",
   },
   {
     q: "Do I need to install anything?",

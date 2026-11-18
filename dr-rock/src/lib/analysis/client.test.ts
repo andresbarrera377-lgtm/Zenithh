@@ -60,3 +60,61 @@ describe("requestAnalysis", () => {
     expect(JSON.parse(form.get("context") as string)).toEqual({ location: "Dover" });
   });
 });
+
+describe("requestAnalysis with background jobs (Netlify)", () => {
+  const photo = () => new Blob(["x"], { type: "image/jpeg" });
+  const pending = (jobId = "job-12345678") => Response.json({ pending: true, jobId, pollAfterMs: 1 }, { status: 202 });
+
+  it("polls the job until the report is ready", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(pending())
+      .mockResolvedValueOnce(Response.json({ pending: true, jobId: "job-12345678", pollAfterMs: 1 }))
+      .mockResolvedValueOnce(Response.json(okBody));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await requestAnalysis(photo(), undefined);
+    expect(res.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[1][0])).toBe("/api/analyze/jobs/job-12345678");
+  });
+
+  it("returns the job's error report as-is", async () => {
+    const failed = { ok: false, error: { code: "AI_REFUSED", message: "declined" } };
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValueOnce(pending()).mockResolvedValueOnce(Response.json(failed)));
+    const res = await requestAnalysis(photo(), undefined);
+    expect(res).toEqual(failed);
+  });
+
+  it("rides out a few dropped connections while polling", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(pending())
+        .mockRejectedValueOnce(new TypeError("network"))
+        .mockRejectedValueOnce(new TypeError("network"))
+        .mockResolvedValueOnce(Response.json(okBody)),
+    );
+    const res = await requestAnalysis(photo(), undefined);
+    expect(res.ok).toBe(true);
+  });
+
+  it("gives up with NETWORK_ERROR after repeated polling failures", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(pending()).mockRejectedValue(new TypeError("network"));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await requestAnalysis(photo(), undefined);
+    expect(res).toMatchObject({ ok: false, error: { code: "NETWORK_ERROR" } });
+  });
+
+  it("stops polling when cancelled", async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      if (String(url).includes("/jobs/")) controller.abort();
+      return String(url).includes("/jobs/") ? Response.json({ pending: true, jobId: "job-12345678", pollAfterMs: 1 }) : pending();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await requestAnalysis(photo(), undefined, controller.signal);
+    expect(res).toMatchObject({ ok: false, error: { code: "TIMEOUT", message: "The analysis was cancelled." } });
+  });
+});

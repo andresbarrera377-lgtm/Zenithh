@@ -12,3 +12,8 @@
 # Not pinned on purpose: Netlify keeps it up to date on every build.
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Background function that runs analyses past the ~30 s request limit (see src/lib/server/analysis-jobs.ts).
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

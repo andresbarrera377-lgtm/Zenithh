@@ -1,5 +1,5 @@
-import type { FieldContext } from "@/lib/analysis/schema";
-import { WIRE_JSON_SCHEMA } from "@/lib/analysis/wire";
+import type { FieldContext } from "../analysis/schema";
+import { WIRE_JSON_SCHEMA } from "../analysis/wire";
 
 /**
  * System prompt for the Dr.Rock analysis engine: the scientific principles that apply everywhere,

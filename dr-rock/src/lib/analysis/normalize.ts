@@ -1,4 +1,4 @@
-import { clamp } from "@/lib/utils";
+import { clamp } from "../utils";
 import type { AgeEstimate, RockAnalysis } from "./schema";
 
 /** Minimum fossil confidence for a "probable_fossil" verdict to stand. */

@@ -1,6 +1,7 @@
-import { AnalysisError, analyzeRock } from "@/lib/ai/analyze-rock";
+import { runAnalysis } from "@/lib/ai/analyze-rock";
 import { getAiConfig } from "@/lib/ai/config";
 import { FieldContextSchema, type AnalysisErrorCode, type AnalyzeResponse, type FieldContext } from "@/lib/analysis/schema";
+import { createJob } from "@/lib/server/analysis-jobs";
 import { MAX_IMAGE_BYTES, validateImageBytes } from "@/lib/server/image-validation";
 import { clientKeyFromHeaders, createRateLimiter } from "@/lib/server/rate-limit";
 import { createId } from "@/lib/utils";
@@ -128,25 +129,45 @@ export async function POST(request: Request): Promise<Response> {
     context = parsed.data;
   }
 
-  try {
-    const { analysis, model } = await analyzeRock({
-      imageBase64: Buffer.from(bytes).toString("base64"),
-      mediaType: validation.mediaType,
-      context,
-      signal: request.signal,
-    });
-    const body: AnalyzeResponse = {
-      ok: true,
-      analysis,
-      meta: { requestId, model, analyzedAt: new Date().toISOString(), durationMs: Date.now() - startedAt },
-    };
-    return Response.json(body, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
-    if (error instanceof AnalysisError) {
-      const detail = getAiConfig().debugErrors ? error.detail : undefined;
-      return errorResponse(error.status, error.code, error.message, error.retryAfterSeconds, detail);
-    }
-    console.error(`[dr-rock] ${requestId} unexpected error`, error);
-    return errorResponse(500, "UNKNOWN", "Something went wrong during the analysis. Please try again.");
+  const imageBase64 = Buffer.from(bytes).toString("base64");
+
+  if (getAiConfig().jobMode === "netlify-background") {
+    return startBackgroundJob(request, requestId, { imageBase64, mediaType: validation.mediaType, context });
   }
+
+  const { status, body: result } = await runAnalysis(
+    { imageBase64, mediaType: validation.mediaType, context, signal: request.signal },
+    requestId,
+    startedAt,
+  );
+  const headers: HeadersInit = { "Cache-Control": "no-store" };
+  if (!result.ok && result.error.retryAfterSeconds) headers["Retry-After"] = String(result.error.retryAfterSeconds);
+  return Response.json(result, { status, headers });
+}
+
+/**
+ * Job mode (Netlify): store the validated photo, hand it to the background function and answer
+ * 202 with a job id; the client polls /api/analyze/jobs/[id] for the report.
+ */
+async function startBackgroundJob(
+  request: Request,
+  jobId: string,
+  job: { imageBase64: string; mediaType: Parameters<typeof createJob>[1]["mediaType"]; context?: FieldContext },
+): Promise<Response> {
+  const token = createId();
+  try {
+    await createJob(jobId, { token, ...job });
+    // DEPLOY_URL pins the call to this exact deploy, so route and worker always match.
+    const origin = process.env.DEPLOY_URL || new URL(request.url).origin;
+    const started = await fetch(`${origin}/.netlify/functions/analyze-background`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jobId, token }),
+    });
+    if (!started.ok) throw new Error(`background function answered ${started.status}`);
+  } catch (error) {
+    console.error(`[dr-rock] ${jobId} could not start background analysis`, error);
+    return errorResponse(503, "AI_UNAVAILABLE", "The analysis service could not start. Please try again in a moment.");
+  }
+  return Response.json({ pending: true, jobId, pollAfterMs: 2500 }, { status: 202, headers: { "Cache-Control": "no-store" } });
 }

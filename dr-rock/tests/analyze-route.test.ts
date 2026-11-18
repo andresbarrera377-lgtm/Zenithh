@@ -237,3 +237,78 @@ describe("POST /api/analyze", () => {
     expect(body).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
   });
 });
+
+describe("POST /api/analyze in Netlify job mode", () => {
+  it("stores the job, starts the background function and answers 202", async () => {
+    process.env.DR_ROCK_JOB_MODE = "netlify-background";
+    const created: Array<{ id: string; job: Record<string, unknown> }> = [];
+    vi.doMock("@/lib/server/analysis-jobs", () => ({
+      createJob: async (id: string, job: Record<string, unknown>) => void created.push({ id, job }),
+    }));
+    const realFetch = globalThis.fetch;
+    const started: Array<{ url: string; body: string }> = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      started.push({ url: String(url), body: String(init.body) });
+      return new Response(null, { status: 202 });
+    });
+    try {
+      const form = new FormData();
+      form.append("image", await photo(), "rock.jpg");
+      const { POST } = await import("@/app/api/analyze/route");
+      const res = await POST(new Request("https://dr-rock.example/api/analyze", { method: "POST", body: form }));
+      const body = await res.json();
+      expect(res.status).toBe(202);
+      expect(body).toMatchObject({ pending: true, jobId: created[0].id });
+      expect(created[0].job).toMatchObject({ mediaType: "image/jpeg" });
+      expect(started[0].url).toBe("https://dr-rock.example/.netlify/functions/analyze-background");
+      expect(JSON.parse(started[0].body)).toEqual({ jobId: created[0].id, token: created[0].job.token });
+      expect(lastRequestBody).toBeNull(); // no AI call from the request itself
+    } finally {
+      vi.stubGlobal("fetch", realFetch);
+      vi.doUnmock("@/lib/server/analysis-jobs");
+      delete process.env.DR_ROCK_JOB_MODE;
+    }
+  });
+
+  it("reports AI_UNAVAILABLE when the background function cannot start", async () => {
+    process.env.DR_ROCK_JOB_MODE = "netlify-background";
+    vi.doMock("@/lib/server/analysis-jobs", () => ({ createJob: async () => undefined }));
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", async () => new Response(null, { status: 404 }));
+    try {
+      const form = new FormData();
+      form.append("image", await photo(), "rock.jpg");
+      const { status, body } = await post(form);
+      expect(status).toBe(503);
+      expect(body).toMatchObject({ ok: false, error: { code: "AI_UNAVAILABLE" } });
+    } finally {
+      vi.stubGlobal("fetch", realFetch);
+      vi.doUnmock("@/lib/server/analysis-jobs");
+      delete process.env.DR_ROCK_JOB_MODE;
+    }
+  });
+});
+
+describe("GET /api/analyze/jobs/[id]", () => {
+  async function get(state: unknown) {
+    vi.resetModules();
+    vi.doMock("@/lib/server/analysis-jobs", () => ({ getJobStatus: async () => state }));
+    vi.doMock("next/server", () => ({ connection: async () => undefined }));
+    try {
+      const { GET } = await import("@/app/api/analyze/jobs/[id]/route");
+      const res = await GET(new Request("http://localhost/api/analyze/jobs/abc12345"), { params: Promise.resolve({ id: "abc12345" }) });
+      return { status: res.status, body: await res.json() };
+    } finally {
+      vi.doUnmock("@/lib/server/analysis-jobs");
+      vi.doUnmock("next/server");
+    }
+  }
+
+  it("maps job states to responses", async () => {
+    expect(await get({ state: "pending" })).toEqual({ status: 200, body: { pending: true, jobId: "abc12345", pollAfterMs: 2500 } });
+    const done = { ok: false, error: { code: "AI_REFUSED", message: "declined" } };
+    expect(await get({ state: "done", response: done })).toEqual({ status: 200, body: done });
+    expect((await get({ state: "expired" })).body).toMatchObject({ ok: false, error: { code: "TIMEOUT" } });
+    expect((await get({ state: "missing" })).status).toBe(404);
+  });
+});
