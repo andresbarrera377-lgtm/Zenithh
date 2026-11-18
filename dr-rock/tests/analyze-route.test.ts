@@ -13,6 +13,7 @@ import type { AnalyzeResponse } from "@/lib/analysis/schema";
 type StubReply = { status?: number; body: unknown };
 let nextReply: StubReply;
 let lastRequestBody: Record<string, unknown> | null = null;
+let lastBetaHeader: string | undefined;
 let server: Server;
 
 function message(content: unknown[], stop_reason = "end_turn") {
@@ -34,6 +35,7 @@ beforeAll(async () => {
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       lastRequestBody = raw ? JSON.parse(raw) : null;
+      lastBetaHeader = req.headers["anthropic-beta"] as string | undefined;
       res.writeHead(nextReply.status ?? 200, { "content-type": "application/json" });
       res.end(JSON.stringify(nextReply.body));
     });
@@ -50,6 +52,8 @@ afterAll(() => {
 beforeEach(() => {
   vi.resetModules();
   lastRequestBody = null;
+  lastBetaHeader = undefined;
+  delete process.env.DR_ROCK_SERVER_FALLBACKS;
   process.env.ANTHROPIC_API_KEY = "test-key";
   process.env.RATE_LIMIT_MAX = "100";
 });
@@ -67,6 +71,29 @@ async function post(form: FormData): Promise<{ status: number; body: AnalyzeResp
 }
 
 describe("POST /api/analyze", () => {
+  it("sends the server-side fallback beta by default", async () => {
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(EXAMPLE_ANALYSIS) }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    const { status } = await post(form);
+    expect(status).toBe(200);
+    expect(lastBetaHeader).toContain("server-side-fallback-2026-07-01");
+    expect(lastRequestBody?.fallbacks).toBe("default");
+  });
+
+  it("uses GA structured outputs with no beta header when fallbacks are off (AI gateways)", async () => {
+    process.env.DR_ROCK_SERVER_FALLBACKS = "off";
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(EXAMPLE_ANALYSIS) }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    const { status, body } = await post(form);
+    expect(status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(lastBetaHeader).toBeUndefined();
+    expect(lastRequestBody).not.toHaveProperty("fallbacks");
+    expect(lastRequestBody).toHaveProperty("output_config.format");
+  });
+
   it("returns a validated, normalized report from the model", async () => {
     nextReply = { body: message([{ type: "text", text: JSON.stringify(EXAMPLE_ANALYSIS) }]) };
     const form = new FormData();

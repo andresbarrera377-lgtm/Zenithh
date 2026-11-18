@@ -1,6 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { normalizeAnalysis } from "@/lib/analysis/normalize";
 import { RockAnalysisSchema, type AnalysisErrorCode, type FieldContext, type RockAnalysis } from "@/lib/analysis/schema";
 import type { AllowedMediaType } from "@/lib/server/image-validation";
@@ -56,35 +57,43 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
     );
   }
 
-  let response;
+  const userContent = [
+    { type: "image" as const, source: { type: "base64" as const, media_type: mediaType, data: imageBase64 } },
+    { type: "text" as const, text: buildUserPrompt(context) },
+  ];
+
+  let response: { stop_reason: string | null; parsed_output: RockAnalysis | null | undefined; model: string };
   try {
-    response = await getClient().beta.messages.parse(
-      {
-        model: config.model,
-        max_tokens: 16000,
-        thinking: { type: "adaptive" },
-        output_config: {
-          effort: config.effort,
-          format: betaZodOutputFormat(RockAnalysisSchema),
-        },
-        // Opt-in server-side fallback: if the model declines for policy reasons, the API
-        // retries on Anthropic's recommended fallback model instead of failing outright.
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-        system: SYSTEM_PROMPT,
-        messages: [
+    response = config.serverFallbacks
+      ? await getClient().beta.messages.parse(
           {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
-              { type: "text", text: buildUserPrompt(context) },
-            ],
+            model: config.model,
+            max_tokens: 16000,
+            thinking: { type: "adaptive" },
+            output_config: { effort: config.effort, format: betaZodOutputFormat(RockAnalysisSchema) },
+            // Opt-in server-side fallback: if the model declines for policy reasons, the API
+            // retries on Anthropic's recommended fallback model instead of failing outright.
+            betas: ["server-side-fallback-2026-07-01"],
+            fallbacks: "default",
+            system: SYSTEM_PROMPT,
+            messages: [{ role: "user", content: userContent }],
           },
-        ],
-      },
-      { signal },
-    );
+          { signal },
+        )
+      : // Gateway-compatible path: GA structured outputs, no beta headers.
+        await getClient().messages.parse(
+          {
+            model: config.model,
+            max_tokens: 16000,
+            thinking: { type: "adaptive" },
+            output_config: { effort: config.effort, format: zodOutputFormat(RockAnalysisSchema) },
+            system: SYSTEM_PROMPT,
+            messages: [{ role: "user", content: userContent }],
+          },
+          { signal },
+        );
   } catch (error) {
+    logAiError(error);
     throw mapSdkError(error);
   }
 
@@ -103,6 +112,16 @@ export async function analyzeRock({ imageBase64, mediaType, context, signal }: A
   }
 
   return { analysis: normalizeAnalysis(response.parsed_output), model: response.model };
+}
+
+/** Server-side log of the upstream failure (status + API message; never the key or the image). */
+function logAiError(error: unknown): void {
+  if (error instanceof Anthropic.APIUserAbortError) return;
+  if (error instanceof Anthropic.APIError) {
+    console.error(`[dr-rock] AI request failed: ${error.status ?? "no status"} ${error.message.slice(0, 500)}`);
+  } else if (error instanceof Error) {
+    console.error(`[dr-rock] AI request failed: ${error.name}: ${error.message.slice(0, 500)}`);
+  }
 }
 
 function mapSdkError(error: unknown): AnalysisError {

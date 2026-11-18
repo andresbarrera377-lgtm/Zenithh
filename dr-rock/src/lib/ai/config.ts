@@ -21,6 +21,9 @@ export function getAiConfig() {
     // TIMEOUT error instead of the platform killing the function mid-request.
     timeoutMs: intInRange(process.env.DR_ROCK_TIMEOUT_SECONDS, 140, 10, 280) * 1000,
     maxRetries: intInRange(process.env.DR_ROCK_MAX_RETRIES, 1, 0, 3),
+    // Server-side refusal fallback needs an `anthropic-beta` header. AI gateways that don't forward
+    // beta headers (e.g. Netlify AI Gateway) reject it, so it can be turned off with "off".
+    serverFallbacks: process.env.DR_ROCK_SERVER_FALLBACKS?.trim().toLowerCase() !== "off",
     rateLimitMax: positiveInt(process.env.RATE_LIMIT_MAX, 12),
     rateLimitWindowSeconds: positiveInt(process.env.RATE_LIMIT_WINDOW_SECONDS, 600),
   };
