@@ -15,22 +15,29 @@ export const VERCEL_AI_GATEWAY_URL = "https://ai-gateway.vercel.sh";
 export function getAiConfig() {
   const effortEnv = process.env.DR_ROCK_EFFORT as Effort | undefined;
   // "vercel": call Claude through Vercel AI Gateway with the deployment's own OIDC token (no API
-  // key needed on Vercel). Anything else uses ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL as usual.
-  const gateway = process.env.DR_ROCK_AI_GATEWAY?.trim().toLowerCase() === "vercel" ? ("vercel" as const) : ("anthropic" as const);
+  // key needed). Chosen automatically on Vercel when there is no ANTHROPIC_API_KEY, so a plain
+  // import of the repository works with zero configuration. Otherwise ANTHROPIC_API_KEY is used.
+  const hasKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+  const gatewayEnv = process.env.DR_ROCK_AI_GATEWAY?.trim().toLowerCase();
+  const gateway = gatewayEnv === "vercel" || (!gatewayEnv && !hasKey && process.env.VERCEL === "1") ? ("vercel" as const) : ("anthropic" as const);
+  const onVercel = gateway === "vercel";
+  const model = process.env.DR_ROCK_MODEL?.trim() || DEFAULT_MODEL;
   return {
     gateway,
-    apiKeyConfigured: gateway === "vercel" || Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
-    model: process.env.DR_ROCK_MODEL?.trim() || DEFAULT_MODEL,
+    apiKeyConfigured: onVercel || hasKey,
+    // Vercel AI Gateway names models "anthropic/claude-opus-5.5".
+    model: onVercel ? toGatewayModel(model) : model,
     effort: effortEnv && EFFORTS.includes(effortEnv) ? effortEnv : ("high" as Effort),
     // Per-attempt AI timeout and retries. Defaults suit hosts with long function limits (Vercel: 300 s).
     // On hosts with shorter limits (Netlify: 60 s) lower these so a slow analysis ends in a clear
     // TIMEOUT error instead of the platform killing the function mid-request.
     // Up to 600 s per attempt for background jobs (Netlify background functions run 15 min).
-    timeoutMs: intInRange(process.env.DR_ROCK_TIMEOUT_SECONDS, 240, 10, 600) * 1000,
-    maxRetries: intInRange(process.env.DR_ROCK_MAX_RETRIES, 1, 0, 3),
+    // On Vercel each request runs at most 300 s, so one 150 s attempt per pass by default.
+    timeoutMs: intInRange(process.env.DR_ROCK_TIMEOUT_SECONDS, onVercel ? 150 : 240, 10, 600) * 1000,
+    maxRetries: intInRange(process.env.DR_ROCK_MAX_RETRIES, onVercel ? 0 : 1, 0, 3),
     // Server-side refusal fallback needs an `anthropic-beta` header. AI gateways that don't forward
     // beta headers (e.g. Netlify AI Gateway) reject it, so it can be turned off with "off".
-    serverFallbacks: process.env.DR_ROCK_SERVER_FALLBACKS?.trim().toLowerCase() !== "off",
+    serverFallbacks: !onVercel && process.env.DR_ROCK_SERVER_FALLBACKS?.trim().toLowerCase() !== "off",
     // "netlify-background": run each analysis as a Netlify background job (Blobs + polling) because
     // Netlify request functions stop at ~30 s. Anything else analyzes within the request.
     jobMode: process.env.DR_ROCK_JOB_MODE?.trim().toLowerCase() === "netlify-background" ? ("netlify-background" as const) : ("direct" as const),
@@ -42,6 +49,12 @@ export function getAiConfig() {
     rateLimitMax: positiveInt(process.env.RATE_LIMIT_MAX, 12),
     rateLimitWindowSeconds: positiveInt(process.env.RATE_LIMIT_WINDOW_SECONDS, 600),
   };
+}
+
+/** "claude-opus-5-5" → "anthropic/claude-opus-5.5" (ids that already have a provider are kept). */
+export function toGatewayModel(model: string): string {
+  if (model.includes("/")) return model;
+  return `anthropic/${model.replace(/-(\d+)-(\d+)$/, "-$1.$2")}`;
 }
 
 function intInRange(value: string | undefined, fallback: number, min: number, max: number): number {

@@ -21,6 +21,24 @@ describe("getAiConfig", () => {
     expect(config).toMatchObject({ effort: "medium", timeoutMs: 50_000, maxRetries: 0 });
   });
 
+  it("uses Vercel AI Gateway automatically on Vercel without an API key", () => {
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("DR_ROCK_MODEL", "");
+    vi.stubEnv("DR_ROCK_TIMEOUT_SECONDS", "");
+    vi.stubEnv("DR_ROCK_MAX_RETRIES", "");
+    expect(getAiConfig()).toMatchObject({
+      gateway: "vercel",
+      apiKeyConfigured: true,
+      model: "anthropic/claude-opus-5.5",
+      serverFallbacks: false,
+      timeoutMs: 150_000,
+      maxRetries: 0,
+    });
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    expect(getAiConfig()).toMatchObject({ gateway: "anthropic", model: "claude-opus-5-5" });
+  });
+
   it("turns the review pass off only when asked", () => {
     vi.stubEnv("DR_ROCK_REVIEW", "off");
     expect(getAiConfig().review).toBe(false);
