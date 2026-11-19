@@ -26,13 +26,24 @@ function normalizeHardness(value: number | null): number | null {
  * 2. "probable_fossil" requires a minimum fossil confidence; otherwise it is downgraded to
  *    "inconclusive_fossil_like" so the app never overstates a fossil claim.
  * 3. Fossil fields are only kept when the verdict actually indicates something fossil-like.
- * 4. Numbers are clamped to valid ranges and lists are trimmed to what the UI expects.
+ * 4. A human-made object (replica, glass, slag…) is never reported as a probable fossil, and its
+ *    material is classified as "artificial".
+ * 5. Numbers are clamped to valid ranges and lists are trimmed to what the UI expects.
  */
 export function normalizeAnalysis(input: RockAnalysis): RockAnalysis {
   const a: RockAnalysis = structuredClone(input);
 
   a.confidence.identification = Math.round(clamp(a.confidence.identification, 0, 100));
   a.confidence.fossil = Math.round(clamp(a.confidence.fossil, 0, 100));
+
+  if (a.origin) {
+    a.origin.confidence = Math.round(clamp(a.origin.confidence, 0, 100));
+    a.origin.evidence = a.origin.evidence.filter((e) => e.trim().length > 0).slice(0, 5);
+    if (a.origin.verdict === "human_made") {
+      a.identification.classification = "artificial";
+      if (a.verdict === "probable_fossil") a.verdict = "inconclusive_fossil_like";
+    }
+  }
 
   const unusable = !a.imageAssessment.showsRockOrFossil || a.imageAssessment.quality === "unusable";
   if (unusable) {

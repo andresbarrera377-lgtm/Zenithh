@@ -13,6 +13,16 @@ export const EXAMPLE_ANALYSIS: RockAnalysis = {
     issues: ["No scale reference in the frame"],
     photoTips: ["Add a coin or ruler for scale", "Photograph the opposite face as well"],
   },
+  origin: {
+    verdict: "natural",
+    confidence: 90,
+    likelyObject: null,
+    imitates: null,
+    evidence: [
+      "Irregular broken edges with no sawn faces, drill holes or polish (photo 1)",
+      "Shells are embedded in the matrix at different angles and partly weathered out, as in natural shell beds",
+    ],
+  },
   verdict: "probable_fossil",
   verdictSummary:
     "Several fan-shaped shells with radiating ribs and growth lines are visible — features typical of brachiopods preserved in limestone.",
@@ -106,6 +116,16 @@ export const EXAMPLE_ANALYSIS_ES: RockAnalysis = {
     subjectDescription: "Un fragmento de roca gris claro con varias conchas acanaladas en forma de abanico expuestas en la superficie.",
     issues: ["No hay ninguna referencia de escala en la foto"],
     photoTips: ["Añade una moneda o una regla como escala", "Fotografía también la cara opuesta"],
+  },
+  origin: {
+    verdict: "natural",
+    confidence: 90,
+    likelyObject: null,
+    imitates: null,
+    evidence: [
+      "Bordes rotos e irregulares, sin caras serradas, perforaciones ni pulido (foto 1)",
+      "Las conchas están incrustadas en la matriz con distintos ángulos y en parte desgastadas, como en los bancos de conchas naturales",
+    ],
   },
   verdictSummary:
     "Se ven varias conchas en forma de abanico con costillas radiales y líneas de crecimiento, rasgos típicos de braquiópodos conservados en caliza.",

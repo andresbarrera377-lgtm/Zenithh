@@ -92,9 +92,14 @@ export default async function HomePage() {
           <h2 id="recent-title" className="font-display text-2xl font-semibold text-chalk-50">
             {t.recent}
           </h2>
-          <Link href="/app/collection" className="text-sm text-mineral-300 hover:underline">
-            {t.myCollection}
-          </Link>
+          <span className="flex gap-4">
+            <Link href="/app/history" className="text-sm text-mineral-300 hover:underline">
+              {t.history}
+            </Link>
+            <Link href="/app/collection" className="text-sm text-mineral-300 hover:underline">
+              {t.myCollection}
+            </Link>
+          </span>
         </div>
         <RecentDiscoveries />
       </section>
@@ -132,7 +137,10 @@ export default async function HomePage() {
       </section>
 
       <Panel className="p-5 text-sm leading-relaxed text-granite-400">
-        <strong className="text-granite-200">{siteConfig.name}</strong> {t.disclaimer}
+        <strong className="text-granite-200">{siteConfig.name}</strong> {t.disclaimer}{" "}
+        <Link href="/app/about" className="text-mineral-300 hover:underline">
+          {t.howItWorks}
+        </Link>
       </Panel>
     </div>
   );

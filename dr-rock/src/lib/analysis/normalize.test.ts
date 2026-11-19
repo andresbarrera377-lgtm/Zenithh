@@ -17,6 +17,24 @@ describe("normalizeAnalysis", () => {
     expect(RockAnalysisSchema.safeParse(out).success).toBe(true);
   });
 
+  it("never reports a human-made object as a probable fossil", () => {
+    const out = normalizeAnalysis(
+      variant((a) => {
+        a.origin = { verdict: "human_made", confidence: 140, likelyObject: "Resin replica of a trilobite", imitates: "trilobite fossil", evidence: ["Mould seam", " "] };
+      }),
+    );
+    expect(out.verdict).toBe("inconclusive_fossil_like");
+    expect(out.identification.classification).toBe("artificial");
+    expect(out.origin).toMatchObject({ confidence: 100, evidence: ["Mould seam"] });
+  });
+
+  it("accepts reports saved before the origin section existed", () => {
+    const legacy = variant((a) => delete a.origin);
+    const out = normalizeAnalysis(legacy);
+    expect(out.origin).toBeUndefined();
+    expect(RockAnalysisSchema.safeParse(out).success).toBe(true);
+  });
+
   it("forces 'insufficient_image' when the photo shows no rock", () => {
     const out = normalizeAnalysis(variant((a) => (a.imageAssessment.showsRockOrFossil = false)));
     expect(out.verdict).toBe("insufficient_image");

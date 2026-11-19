@@ -5,7 +5,7 @@
  * functions that fail, and a retry would run (and bill) the same analysis again.
  */
 import { runAnalysis } from "../../src/lib/ai/analyze-core";
-import { claimJob, finishJob } from "../../src/lib/server/analysis-jobs";
+import { claimJob, finishJob, setJobStage } from "../../src/lib/server/analysis-jobs";
 
 async function analyzeBackground(request: Request): Promise<void> {
   let jobId = "";
@@ -27,8 +27,15 @@ async function analyzeBackground(request: Request): Promise<void> {
   }
   if (!job) return;
 
+  const startedAt = Date.now();
   const { body } = await runAnalysis(
-    { imageBase64: job.imageBase64, mediaType: job.mediaType, context: job.context, lang: job.lang },
+    {
+      images: job.images,
+      context: job.context,
+      lang: job.lang,
+      // Progress for the app ("analyzing" → "reviewing"); a failed write never stops the analysis.
+      onStage: (stage) => setJobStage(jobId, job.createdAt, startedAt, stage).catch(() => undefined),
+    },
     jobId,
     job.createdAt,
   );

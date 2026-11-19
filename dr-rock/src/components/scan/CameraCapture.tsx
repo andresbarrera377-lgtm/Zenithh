@@ -1,9 +1,9 @@
 "use client";
 
-import { Camera, CameraOff, RefreshCw, SwitchCamera, X, Zap, ZapOff } from "lucide-react";
+import { Camera, CameraOff, Check, RefreshCw, SwitchCamera, X, Zap, ZapOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { captureVideoFrame, ImageProcessingError, type ProcessedImage } from "@/lib/image/process-image";
+import { captureVideoFrame, ImageProcessingError, processImageBlob, type ProcessedImage } from "@/lib/image/process-image";
 import { useMessages } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
@@ -15,8 +15,36 @@ type CameraState =
 
 type CameraErrorKind = "denied" | "notFound" | "busy" | "unavailable";
 
-interface TorchCapabilities extends MediaTrackCapabilities {
+interface CameraCapabilities extends MediaTrackCapabilities {
   torch?: boolean;
+  zoom?: { min: number; max: number; step?: number };
+  focusMode?: string[];
+}
+
+/** ImageCapture (Chrome/Android): full-sensor still photos, sharper than a video frame. */
+interface ImageCaptureLike {
+  takePhoto(): Promise<Blob>;
+}
+declare global {
+  interface Window {
+    ImageCapture?: new (track: MediaStreamTrack) => ImageCaptureLike;
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
 }
 
 function describeCameraError(error: unknown): CameraErrorKind {
@@ -40,15 +68,29 @@ export function isLiveCameraSupported(): boolean {
   return typeof window !== "undefined" && window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
 }
 
+export interface CameraShot {
+  /** 1-based number of the photo being taken. */
+  index: number;
+  max: number;
+  title: string;
+  hint: string;
+}
+
 /**
  * Full-screen live camera with a scientific viewfinder.
- * Uses the rear camera by default and offers torch + camera switching where supported.
+ * Uses the rear camera by default and offers torch, zoom, tap-to-focus and camera switching where
+ * supported. Stays open between shots so several photos of the specimen can be taken in a row;
+ * the parent closes it when the last slot is filled or the user taps Done.
  */
 export function CameraCapture({
+  shot,
+  canFinish,
   onCapture,
   onClose,
   onUseNativeCamera,
 }: {
+  shot?: CameraShot;
+  canFinish?: boolean;
   onCapture: (image: ProcessedImage) => void;
   onClose: () => void;
   onUseNativeCamera: () => void;
@@ -57,6 +99,11 @@ export function CameraCapture({
   const streamRef = useRef<MediaStream | null>(null);
   const [state, setState] = useState<CameraState>({ kind: "starting" });
   const t = useMessages("scan");
+  const c = useMessages("capture");
+  const [zoom, setZoom] = useState<{ min: number; max: number; step: number; value: number } | null>(null);
+  const [focusPoint, setFocusPoint] = useState<{ x: number; y: number; key: number } | null>(null);
+  const [savedToast, setSavedToast] = useState(false);
+  const capsRef = useRef<CameraCapabilities>({});
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [canSwitch, setCanSwitch] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
@@ -80,8 +127,9 @@ export function CameraCapture({
           audio: false,
           video: {
             facingMode: { ideal: facing },
-            width: { ideal: 2560 },
-            height: { ideal: 1440 },
+            // Ask for 4K: the AI reads up to 2576 px, and a sharper preview helps focusing.
+            width: { ideal: 3840 },
+            height: { ideal: 2160 },
           },
         });
         if (cancelled) {
@@ -95,9 +143,19 @@ export function CameraCapture({
           await video.play().catch(() => undefined);
         }
         const track = stream.getVideoTracks()[0];
-        const caps = (track.getCapabilities?.() ?? {}) as TorchCapabilities;
+        const caps = (track.getCapabilities?.() ?? {}) as CameraCapabilities;
+        capsRef.current = caps;
         setTorchSupported(Boolean(caps.torch));
         setTorchOn(false);
+        if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+          const settings = track.getSettings?.() as MediaTrackSettings & { zoom?: number };
+          setZoom({ min: caps.zoom.min, max: Math.min(caps.zoom.max, caps.zoom.min * 8), step: caps.zoom.step || 0.1, value: settings?.zoom ?? caps.zoom.min });
+        } else {
+          setZoom(null);
+        }
+        if (caps.focusMode?.includes("continuous")) {
+          track.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] }).catch(() => undefined);
+        }
         const devices = await navigator.mediaDevices.enumerateDevices();
         setCanSwitch(devices.filter((d) => d.kind === "videoinput").length > 1);
         setState({ kind: "live" });
@@ -130,6 +188,44 @@ export function CameraCapture({
     }
   }
 
+  async function applyZoom(value: number) {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track || !zoom) return;
+    setZoom({ ...zoom, value });
+    await track.applyConstraints({ advanced: [{ zoom: value } as MediaTrackConstraintSet] }).catch(() => undefined);
+  }
+
+  /** Tap to focus where supported (pointsOfInterest); the ring shows where the user tapped. */
+  function focusAt(event: React.PointerEvent<HTMLDivElement>) {
+    if (state.kind !== "live") return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    setFocusPoint({ x, y, key: Date.now() });
+    const track = streamRef.current?.getVideoTracks()[0];
+    const modes = capsRef.current.focusMode ?? [];
+    if (!track || modes.length === 0) return;
+    const point = { x: facing === "user" ? 1 - x : x, y };
+    const mode = modes.includes("single-shot") ? "single-shot" : modes.includes("continuous") ? "continuous" : modes[0];
+    track
+      .applyConstraints({ advanced: [{ pointsOfInterest: [point], focusMode: mode } as unknown as MediaTrackConstraintSet] })
+      .catch(() => undefined);
+  }
+
+  /** Full-resolution still when the browser supports it (and the torch is off), else the video frame. */
+  async function grabImage(video: HTMLVideoElement): Promise<ProcessedImage> {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (track && !torchOn && typeof window !== "undefined" && window.ImageCapture) {
+      try {
+        const blob = await withTimeout(new window.ImageCapture(track).takePhoto(), 6000);
+        return await processImageBlob(blob);
+      } catch {
+        // Fall back to the video frame below.
+      }
+    }
+    return captureVideoFrame(video);
+  }
+
   async function capture() {
     const video = videoRef.current;
     if (!video || capturing) return;
@@ -137,8 +233,9 @@ export function CameraCapture({
     setFlash(true);
     setTimeout(() => setFlash(false), 180);
     try {
-      const image = await captureVideoFrame(video);
-      stopStream();
+      const image = await grabImage(video);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 1600);
       onCapture(image);
     } catch (error) {
       setState({
@@ -158,7 +255,10 @@ export function CameraCapture({
       className="fixed inset-0 z-[60] flex flex-col bg-carbon-950 animate-fade-in"
     >
       <div className="safe-top flex items-center justify-between px-4 py-3">
-        <p className="label-mono text-mineral-400">{t.camera.title}</p>
+        <div>
+          <p className="label-mono text-mineral-400">{shot ? `${c.cam.shotOf(shot.index, shot.max)} · ${shot.title}` : t.camera.title}</p>
+          {shot && <p className="mt-0.5 text-xs text-granite-300">{shot.hint}</p>}
+        </div>
         <button
           type="button"
           onClick={onClose}
@@ -170,7 +270,10 @@ export function CameraCapture({
       </div>
 
       <div className="relative mx-auto flex w-full max-w-3xl flex-1 items-center justify-center overflow-hidden px-3">
-        <div className="relative aspect-[3/4] max-h-full w-full overflow-hidden rounded-3xl bg-carbon-900 ring-1 ring-granite-700 sm:aspect-[4/3]">
+        <div
+          className="relative aspect-[3/4] max-h-full w-full touch-manipulation overflow-hidden rounded-3xl bg-carbon-900 ring-1 ring-granite-700 sm:aspect-[4/3]"
+          onPointerUp={focusAt}
+        >
           <video
             ref={videoRef}
             playsInline
@@ -184,6 +287,23 @@ export function CameraCapture({
           />
 
           {state.kind === "live" && <Viewfinder />}
+
+          {focusPoint && state.kind === "live" && (
+            <span
+              key={focusPoint.key}
+              aria-hidden
+              className="pointer-events-none absolute h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ochre-300 animate-fade-in"
+              style={{ left: `${focusPoint.x * 100}%`, top: `${focusPoint.y * 100}%` }}
+            />
+          )}
+
+          {savedToast && (
+            <div className="absolute inset-x-0 bottom-4 flex justify-center">
+              <span className="flex items-center gap-1.5 rounded-full bg-mineral-400 px-3 py-1.5 text-sm font-semibold text-carbon-950 shadow-lg">
+                <Check className="h-4 w-4" /> {c.cam.saved}
+              </span>
+            </div>
+          )}
 
           {state.kind === "starting" && (
             <div className="absolute inset-0 grid place-items-center text-granite-300">
@@ -230,7 +350,22 @@ export function CameraCapture({
         </div>
       </div>
 
-      <div className="safe-bottom px-6 pb-6 pt-5">
+      <div className="safe-bottom px-6 pb-6 pt-4">
+        {zoom && state.kind === "live" && (
+          <label className="mx-auto mb-4 flex max-w-md items-center gap-3 text-xs text-granite-300">
+            <span className="font-mono">{c.cam.zoom}</span>
+            <input
+              type="range"
+              min={zoom.min}
+              max={zoom.max}
+              step={zoom.step}
+              value={zoom.value}
+              onChange={(e) => applyZoom(Number(e.target.value))}
+              className="h-1 flex-1 accent-mineral-400"
+            />
+            <span className="w-10 text-right font-mono">{zoom.value.toFixed(1)}×</span>
+          </label>
+        )}
         <div className="mx-auto flex max-w-md items-center justify-between">
           <button
             type="button"
@@ -264,8 +399,15 @@ export function CameraCapture({
             <SwitchCamera className="h-5 w-5" />
           </button>
         </div>
+        {canFinish && (
+          <div className="mx-auto mt-4 flex max-w-md justify-center">
+            <Button size="sm" variant="secondary" icon={<Check className="h-4 w-4" />} onClick={onClose}>
+              {c.cam.done}
+            </Button>
+          </div>
+        )}
         <p className="mt-4 text-center text-xs text-granite-400">
-          {t.camera.hint}{" "}
+          {c.cam.focus} · {t.camera.hint}{" "}
           <button type="button" onClick={onUseNativeCamera} className="text-mineral-300 underline-offset-2 hover:underline">
             {t.camera.useAppInstead}
           </button>

@@ -17,6 +17,8 @@ export interface Discovery {
   tags: string[];
   favorite: boolean;
   image: Blob;
+  /** Every photo the analysis used (the first is `image`); absent on items saved before v2. */
+  photos?: Blob[];
   thumbnail: Blob;
   analysis: RockAnalysis;
   meta: AnalysisMeta;
@@ -28,6 +30,7 @@ export interface Discovery {
 
 export interface NewDiscovery {
   image: Blob;
+  photos?: Blob[];
   thumbnail: Blob;
   analysis: RockAnalysis;
   meta: AnalysisMeta;

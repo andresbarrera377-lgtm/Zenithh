@@ -35,6 +35,24 @@ export function formatDateTime(iso: string, lang: Lang = "en"): string {
   return formatter(lang, true).format(new Date(iso));
 }
 
+export function formatTime(iso: string, lang: Lang = "en"): string {
+  return new Date(iso).toLocaleTimeString(INTL[lang], { hour: "2-digit", minute: "2-digit" });
+}
+
+
+/** "12 MB", "850 KB" — for storage usage. */
+export function formatBytes(bytes: number, lang: Lang = "en"): string {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  const digits = value < 10 && unit > 0 ? 1 : 0;
+  return `${value.toLocaleString(INTL[lang], { maximumFractionDigits: digits })} ${units[unit]}`;
+}
+
 const MA_WORDS: Record<Lang, { present: string; years: string; thousand: string }> = {
   es: { present: "actualidad", years: "años", thousand: "mil años" },
   en: { present: "present", years: "years", thousand: "thousand years" },

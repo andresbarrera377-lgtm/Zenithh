@@ -19,16 +19,16 @@ afterEach(() => vi.useRealTimers());
 
 describe("analysis jobs", () => {
   it("claims a job once, with the right token, and drops the photo when claimed", async () => {
-    await createJob(JOB, { token: "secret", imageBase64: "AAAA", mediaType: "image/jpeg" });
+    await createJob(JOB, { token: "secret", images: [{ data: "AAAA", mediaType: "image/jpeg" }] });
     expect(await claimJob(JOB, "wrong")).toBeNull();
     const claimed = await claimJob(JOB, "secret");
-    expect(claimed?.imageBase64).toBe("AAAA");
+    expect(claimed?.images[0].data).toBe("AAAA");
     expect(JSON.stringify(blobs.get(JOB))).not.toContain("AAAA");
     expect(await claimJob(JOB, "secret")).toBeNull();
   });
 
   it("reports pending, then the stored result", async () => {
-    await createJob(JOB, { token: "t", imageBase64: "AAAA", mediaType: "image/png" });
+    await createJob(JOB, { token: "t", images: [{ data: "AAAA", mediaType: "image/png" }] });
     expect(await getJobStatus(JOB)).toEqual({ state: "pending" });
     await claimJob(JOB, "t");
     expect(await getJobStatus(JOB)).toEqual({ state: "pending" });
@@ -38,7 +38,7 @@ describe("analysis jobs", () => {
 
   it("expires jobs that never finish and rejects malformed ids", async () => {
     vi.useFakeTimers();
-    await createJob(JOB, { token: "t", imageBase64: "AAAA", mediaType: "image/jpeg" });
+    await createJob(JOB, { token: "t", images: [{ data: "AAAA", mediaType: "image/jpeg" }] });
     vi.advanceTimersByTime(JOB_EXPIRY_MS + 1);
     expect(await getJobStatus(JOB)).toEqual({ state: "expired" });
     expect(await getJobStatus("../etc/passwd")).toEqual({ state: "missing" });

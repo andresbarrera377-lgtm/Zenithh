@@ -1,5 +1,7 @@
+import type { AnalysisPhoto } from "@/lib/ai/analyze-core";
 import { runAnalysis } from "@/lib/ai/analyze-rock";
 import { getAiConfig } from "@/lib/ai/config";
+import { MAX_PHOTOS, MAX_TOTAL_PHOTO_BYTES, isPhotoRole } from "@/lib/analysis/photos";
 import { FieldContextSchema, type AnalysisErrorCode, type AnalyzeResponse, type FieldContext } from "@/lib/analysis/schema";
 import { LOCALE_COOKIE, isLocale, pickLocale, type Locale } from "@/lib/i18n/config";
 import { createJob } from "@/lib/server/analysis-jobs";
@@ -16,8 +18,9 @@ const limiter = createRateLimiter({
   windowMs: config.rateLimitWindowSeconds * 1000,
 });
 
-/** Multipart overhead allowance on top of the image itself (boundaries, context field). */
-const MAX_BODY_BYTES = MAX_IMAGE_BYTES + 64 * 1024;
+/** Multipart overhead allowance on top of the photos (boundaries, context and role fields). */
+const MAX_BODY_BYTES = MAX_TOTAL_PHOTO_BYTES + 64 * 1024;
+const TOO_LARGE = "The photos are too large. Please use fewer or smaller photos.";
 
 function errorResponse(
   status: number,
@@ -80,14 +83,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
   if (declaredLength > MAX_BODY_BYTES) {
-    return errorResponse(413, "IMAGE_TOO_LARGE", "The image is too large. Please use a photo under 3.5 MB.");
+    return errorResponse(413, "IMAGE_TOO_LARGE", TOO_LARGE);
   }
 
   // Read the body with a hard cap: a missing or false Content-Length must not let a client
   // stream an arbitrarily large upload into memory.
   const body = await readBodyWithLimit(request, MAX_BODY_BYTES);
   if (body === null) {
-    return errorResponse(413, "IMAGE_TOO_LARGE", "The image is too large. Please use a photo under 3.5 MB.");
+    return errorResponse(413, "IMAGE_TOO_LARGE", TOO_LARGE);
   }
 
   let form: FormData;
@@ -99,19 +102,36 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse(400, "INVALID_REQUEST", "Expected a multipart form with an 'image' field.");
   }
 
-  const image = form.get("image");
-  if (!(image instanceof File)) {
+  // One to three photos of the same specimen, sent as repeated "image" fields; "photoRoles" says
+  // what each one shows (overview, close-up, other view).
+  const files = form.getAll("image").filter((f): f is File => f instanceof File);
+  if (files.length === 0) {
     return errorResponse(400, "INVALID_REQUEST", "No image was received.");
   }
-  if (image.size > MAX_IMAGE_BYTES) {
-    return errorResponse(413, "IMAGE_TOO_LARGE", "The image is too large. Please use a photo under 3.5 MB.");
+  if (files.length > MAX_PHOTOS) {
+    return errorResponse(400, "INVALID_REQUEST", `Send at most ${MAX_PHOTOS} photos.`);
+  }
+  let roles: unknown[] = [];
+  try {
+    const rawRoles = form.get("photoRoles");
+    if (typeof rawRoles === "string" && rawRoles) roles = JSON.parse(rawRoles);
+  } catch {
+    roles = [];
   }
 
-  const bytes = new Uint8Array(await image.arrayBuffer());
-  const validation = validateImageBytes(bytes);
-  if (!validation.ok) {
-    const status = validation.code === "IMAGE_TOO_LARGE" ? 413 : validation.code === "UNSUPPORTED_IMAGE_TYPE" ? 415 : 400;
-    return errorResponse(status, validation.code, validation.message);
+  const images: AnalysisPhoto[] = [];
+  for (const [i, file] of files.entries()) {
+    if (file.size > MAX_IMAGE_BYTES) {
+      return errorResponse(413, "IMAGE_TOO_LARGE", TOO_LARGE);
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const validation = validateImageBytes(bytes);
+    if (!validation.ok) {
+      const status = validation.code === "IMAGE_TOO_LARGE" ? 413 : validation.code === "UNSUPPORTED_IMAGE_TYPE" ? 415 : 400;
+      return errorResponse(status, validation.code, validation.message);
+    }
+    const role = Array.isArray(roles) ? roles[i] : undefined;
+    images.push({ data: Buffer.from(bytes).toString("base64"), mediaType: validation.mediaType, role: isPhotoRole(role) ? role : undefined });
   }
 
   let context: FieldContext | undefined;
@@ -135,14 +155,13 @@ export async function POST(request: Request): Promise<Response> {
     ? rawLang
     : pickLocale(readCookie(request.headers.get("cookie"), LOCALE_COOKIE), request.headers.get("accept-language"));
 
-  const imageBase64 = Buffer.from(bytes).toString("base64");
-
   if (getAiConfig().jobMode === "netlify-background") {
-    return startBackgroundJob(request, requestId, { imageBase64, mediaType: validation.mediaType, context, lang });
+    return startBackgroundJob(request, requestId, { images, context, lang });
   }
 
   const { status, body: result } = await runAnalysis(
-    { imageBase64, mediaType: validation.mediaType, context, lang, signal: request.signal },
+    // Within a single request (max 300 s) the review pass only runs if the first one was quick.
+    { images, context, lang, signal: request.signal, reviewBudgetMs: 110_000 },
     requestId,
     startedAt,
   );
@@ -152,13 +171,13 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 /**
- * Job mode (Netlify): store the validated photo, hand it to the background function and answer
+ * Job mode (Netlify): store the validated photos, hand it to the background function and answer
  * 202 with a job id; the client polls /api/analyze/jobs/[id] for the report.
  */
 async function startBackgroundJob(
   request: Request,
   jobId: string,
-  job: { imageBase64: string; mediaType: Parameters<typeof createJob>[1]["mediaType"]; context?: FieldContext; lang: Locale },
+  job: { images: AnalysisPhoto[]; context?: FieldContext; lang: Locale },
 ): Promise<Response> {
   const token = createId();
   try {

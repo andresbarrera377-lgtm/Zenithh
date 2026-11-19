@@ -13,7 +13,10 @@ import type { AnalyzeResponse } from "@/lib/analysis/schema";
 
 type StubReply = { status?: number; body: unknown };
 let nextReply: StubReply;
+/** Replies used in order before falling back to `nextReply` (first pass, review pass…). */
+let replyQueue: StubReply[] = [];
 let lastRequestBody: Record<string, unknown> | null = null;
+let requestBodies: Array<Record<string, unknown>> = [];
 let lastBetaHeader: string | undefined;
 let server: Server;
 
@@ -36,9 +39,11 @@ beforeAll(async () => {
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       lastRequestBody = raw ? JSON.parse(raw) : null;
+      if (lastRequestBody) requestBodies.push(lastRequestBody);
       lastBetaHeader = req.headers["anthropic-beta"] as string | undefined;
-      res.writeHead(nextReply.status ?? 200, { "content-type": "application/json" });
-      res.end(JSON.stringify(nextReply.body));
+      const reply = replyQueue.shift() ?? nextReply;
+      res.writeHead(reply.status ?? 200, { "content-type": "application/json" });
+      res.end(JSON.stringify(reply.body));
     });
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
@@ -53,7 +58,10 @@ afterAll(() => {
 beforeEach(() => {
   vi.resetModules();
   lastRequestBody = null;
+  requestBodies = [];
+  replyQueue = [];
   lastBetaHeader = undefined;
+  delete process.env.DR_ROCK_REVIEW;
   delete process.env.DR_ROCK_SERVER_FALLBACKS;
   delete process.env.DR_ROCK_DEBUG_ERRORS;
   process.env.ANTHROPIC_API_KEY = "test-key";
@@ -127,14 +135,108 @@ describe("POST /api/analyze", () => {
     expect(body.analysis.identification.rockName).toBe("Fossiliferous limestone");
     expect(body.meta.model).toBe("claude-opus-5-5");
 
-    // The request sent to the model: image + structured output schema + server-side fallback.
-    const sent = lastRequestBody as { messages: Array<{ content: Array<{ type: string; text?: string }> }>; output_config: Record<string, unknown>;
+    // First pass: photo label + photo (cached) + prompt, with the schema and server-side fallback.
+    type Sent = { messages: Array<{ content: Array<{ type: string; text?: string; cache_control?: unknown }> }>; output_config: Record<string, unknown>;
       system: unknown; fallbacks: string };
-    expect(sent.messages[0].content[0].type).toBe("image");
-    expect(sent.messages[0].content[1].text).toContain("Gotland, Sweden");
+    expect(requestBodies).toHaveLength(2);
+    const sent = requestBodies[0] as Sent;
+    expect(sent.messages[0].content[0].text).toContain("Photo 1 of 1");
+    expect(sent.messages[0].content[1]).toMatchObject({ type: "image", cache_control: { type: "ephemeral" } });
+    expect(sent.messages[0].content[2].text).toContain("Gotland, Sweden");
     expect(sent.output_config).toEqual({ effort: "high" });
     expect(String(sent.system)).toContain("<json_schema>");
     expect(sent.fallbacks).toBe("default");
+
+    // Second pass: same photos, then the draft to review.
+    const review = requestBodies[1] as Sent;
+    expect(review.messages[0].content[1]).toMatchObject({ type: "image", cache_control: { type: "ephemeral" } });
+    expect(review.messages[0].content[2].text).toContain("<draft_report>");
+    expect(body.meta).toMatchObject({ reviewed: true, photoCount: 1 });
+  });
+
+  it("sends several photos with their roles, and rejects more than three", async () => {
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "a.jpg");
+    form.append("image", await photo(800, 600), "b.jpg");
+    form.append("photoRoles", JSON.stringify(["overview", "closeup"]));
+    const { status, body } = await post(form);
+    expect(status).toBe(200);
+    expect(body.ok && body.meta.photoCount).toBe(2);
+    const content = (requestBodies[0] as { messages: Array<{ content: Array<{ type: string; text?: string }> }> }).messages[0].content;
+    expect(content.map((c) => c.type)).toEqual(["text", "image", "text", "image", "text"]);
+    expect(content[0].text).toContain("Photo 1 of 2 — overview");
+    expect(content[2].text).toContain("Photo 2 of 2 — close-up");
+    expect(content[4].text).toContain("the 2 photos above");
+
+    const tooMany = new FormData();
+    for (let i = 0; i < 4; i++) tooMany.append("image", await photo(), `${i}.jpg`);
+    expect((await post(tooMany)).status).toBe(400);
+  });
+
+  it("uses the corrected report from the review pass", async () => {
+    const corrected = structuredClone(EXAMPLE_ANALYSIS);
+    corrected.identification.rockName = "Corrected limestone";
+    replyQueue = [
+      { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) },
+      { body: message([{ type: "text", text: JSON.stringify(toWire(corrected)) }]) },
+    ];
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    const { body } = await post(form);
+    expect(body.ok && body.analysis.identification.rockName).toBe("Corrected limestone");
+    expect(body.ok && body.meta.reviewed).toBe(true);
+  });
+
+  it("keeps the first report when the review pass fails", async () => {
+    replyQueue = [
+      { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) },
+      { body: message([{ type: "text", text: "not json" }]) },
+    ];
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    const { status, body } = await post(form);
+    expect(status).toBe(200);
+    expect(body.ok && body.analysis.identification.rockName).toBe("Fossiliferous limestone");
+    expect(body.ok && body.meta.reviewed).toBe(false);
+
+    replyQueue = [
+      { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) },
+      { status: 529, body: { type: "error", error: { type: "overloaded_error", message: "busy" } } },
+      { status: 529, body: { type: "error", error: { type: "overloaded_error", message: "busy" } } },
+    ];
+    const again = new FormData();
+    again.append("image", await photo(), "rock.jpg");
+    const second = await post(again);
+    expect(second.status).toBe(200);
+    expect(second.body.ok && second.body.meta.reviewed).toBe(false);
+  });
+
+  it("makes a single call when the review pass is turned off", async () => {
+    process.env.DR_ROCK_REVIEW = "off";
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    const { body } = await post(form);
+    expect(requestBodies).toHaveLength(1);
+    expect(body.ok && body.meta.reviewed).toBe(false);
+  });
+
+  it("puts the user's field tests in the prompt", async () => {
+    nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
+    const form = new FormData();
+    form.append("image", await photo(), "rock.jpg");
+    form.append("context", JSON.stringify({ tests: { fizz: "strong", hardness: "medium", streak: "white" } }));
+    expect((await post(form)).status).toBe(200);
+    const prompt = (requestBodies[0] as { messages: Array<{ content: Array<{ text?: string }> }> }).messages[0].content[2].text;
+    expect(prompt).toContain("Vinegar test: fizzes strongly");
+    expect(prompt).toContain("a steel knife scratches it but a fingernail does not");
+    expect(prompt).toContain("Streak colour: white");
+
+    const bad = new FormData();
+    bad.append("image", await photo(), "rock.jpg");
+    bad.append("context", JSON.stringify({ tests: { fizz: "maybe" } }));
+    expect((await post(bad)).status).toBe(400);
   });
 
   it("asks for the report in the language the app sends", async () => {
@@ -143,8 +245,8 @@ describe("POST /api/analyze", () => {
     form.append("image", await photo(), "rock.jpg");
     form.append("lang", "es");
     expect((await post(form)).status).toBe(200);
-    const sent = lastRequestBody as { messages: Array<{ content: Array<{ text?: string }> }> };
-    expect(sent.messages[0].content[1].text).toContain("Report language: Spanish");
+    const sent = requestBodies[0] as { messages: Array<{ content: Array<{ text?: string }> }> };
+    expect(sent.messages[0].content[2].text).toContain("Report language: Spanish");
   });
 
   it("falls back to the default language (Spanish) for an unknown one with no other hint", async () => {
@@ -153,8 +255,8 @@ describe("POST /api/analyze", () => {
     form.append("image", await photo(), "rock.jpg");
     form.append("lang", "xx");
     expect((await post(form)).status).toBe(200);
-    const sent = lastRequestBody as { messages: Array<{ content: Array<{ text?: string }> }> };
-    expect(sent.messages[0].content[1].text).toContain("Report language: Spanish");
+    const sent = requestBodies[0] as { messages: Array<{ content: Array<{ text?: string }> }> };
+    expect(sent.messages[0].content[2].text).toContain("Report language: Spanish");
   });
 
   it("refuses to answer when no API key is configured (never fabricates)", async () => {
@@ -279,7 +381,7 @@ describe("POST /api/analyze in Netlify job mode", () => {
       const body = await res.json();
       expect(res.status).toBe(202);
       expect(body).toMatchObject({ pending: true, jobId: created[0].id });
-      expect(created[0].job).toMatchObject({ mediaType: "image/jpeg" });
+      expect(created[0].job).toMatchObject({ images: [{ mediaType: "image/jpeg" }] });
       expect(started[0].url).toBe("https://dr-rock.example/.netlify/functions/analyze-background");
       expect(JSON.parse(started[0].body)).toEqual({ jobId: created[0].id, token: created[0].job.token });
       expect(lastRequestBody).toBeNull(); // no AI call from the request itself

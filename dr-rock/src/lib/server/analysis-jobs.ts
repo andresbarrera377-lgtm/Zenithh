@@ -11,7 +11,7 @@
 import type { Locale } from "../i18n/config";
 import { getStore } from "@netlify/blobs";
 import type { AnalyzeResponse, FieldContext } from "../analysis/schema";
-import type { AllowedMediaType } from "./image-validation";
+import type { AnalysisPhoto, AnalysisStage } from "../ai/analyze-core";
 
 /** A job older than this without a result is reported as failed. */
 export const JOB_EXPIRY_MS = 10 * 60 * 1000;
@@ -20,8 +20,8 @@ export interface QueuedJob {
   state: "queued";
   token: string;
   createdAt: number;
-  imageBase64: string;
-  mediaType: AllowedMediaType;
+  /** The validated photos (base64); removed from the record as soon as the job is claimed. */
+  images: AnalysisPhoto[];
   context?: FieldContext;
   lang?: Locale;
 }
@@ -30,6 +30,8 @@ interface ProcessingJob {
   state: "processing";
   createdAt: number;
   startedAt: number;
+  /** Which pass is running, shown as progress in the app. */
+  stage?: AnalysisStage;
 }
 
 interface FinishedJob {
@@ -42,7 +44,7 @@ interface FinishedJob {
 type JobRecord = QueuedJob | ProcessingJob | FinishedJob;
 
 export type JobStatus =
-  | { state: "pending" }
+  | { state: "pending"; stage?: AnalysisStage }
   | { state: "done"; response: AnalyzeResponse }
   | { state: "missing" }
   | { state: "expired" };
@@ -74,6 +76,12 @@ export async function claimJob(jobId: string, token: string): Promise<QueuedJob 
   return record;
 }
 
+/** Records which pass a claimed job is in (progress only; failures are ignored by the caller). */
+export async function setJobStage(jobId: string, createdAt: number, startedAt: number, stage: AnalysisStage): Promise<void> {
+  const record: ProcessingJob = { state: "processing", createdAt, startedAt, stage };
+  await store().setJSON(jobId, record);
+}
+
 export async function finishJob(jobId: string, createdAt: number, response: AnalyzeResponse): Promise<void> {
   const record: FinishedJob = { state: "done", createdAt, finishedAt: Date.now(), response };
   await store().setJSON(jobId, record);
@@ -85,5 +93,5 @@ export async function getJobStatus(jobId: string): Promise<JobStatus> {
   if (!record) return { state: "missing" };
   if (record.state === "done") return { state: "done", response: record.response };
   if (Date.now() - record.createdAt > JOB_EXPIRY_MS) return { state: "expired" };
-  return { state: "pending" };
+  return record.state === "processing" && record.stage ? { state: "pending", stage: record.stage } : { state: "pending" };
 }

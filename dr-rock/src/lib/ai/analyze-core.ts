@@ -6,11 +6,12 @@
 import type { Locale } from "../i18n/config";
 import Anthropic from "@anthropic-ai/sdk";
 import { normalizeAnalysis } from "../analysis/normalize";
+import type { UploadRole } from "../analysis/photos";
 import type { AnalysisErrorCode, AnalyzeResponse, FieldContext, RockAnalysis } from "../analysis/schema";
 import { fromWire, parseWireReport } from "../analysis/wire";
 import type { AllowedMediaType } from "../server/image-validation";
 import { getAiConfig } from "./ai-config";
-import { ANALYSIS_SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
+import { ANALYSIS_SYSTEM_PROMPT, buildReviewPrompt, buildUserPrompt, photoLabel } from "./prompt";
 
 export class AnalysisError extends Error {
   /** Upstream API status + message, returned to clients only when DR_ROCK_DEBUG_ERRORS=on. */
@@ -37,43 +38,48 @@ function getClient(): Anthropic {
   return client;
 }
 
-export interface AnalyzeRockInput {
-  imageBase64: string;
+export interface AnalysisPhoto {
+  /** Base64-encoded image bytes. */
+  data: string;
   mediaType: AllowedMediaType;
+  role?: UploadRole;
+}
+
+export type AnalysisStage = "analyzing" | "reviewing";
+
+export interface AnalyzeRockInput {
+  /** One to three photos of the same specimen; the first is the main (overview) photo. */
+  images: AnalysisPhoto[];
   context?: FieldContext;
   /** Language of the report's free text (enum values stay English). */
   lang?: Locale;
   signal?: AbortSignal;
+  /** Called when the analysis moves to the next pass (used for progress in job mode). */
+  onStage?: (stage: AnalysisStage) => void | Promise<void>;
+  /**
+   * Skip the review pass when the first pass took longer than this (ms). Used on hosts whose
+   * request functions stop after a few minutes; background jobs leave it unset.
+   */
+  reviewBudgetMs?: number;
 }
 
 export interface AnalyzeRockOutput {
   analysis: RockAnalysis;
   model: string;
+  /** True when the second (review) pass checked and corrected the report. */
+  reviewed: boolean;
 }
 
-/**
- * Sends the photo to Claude and returns a validated, normalized report.
- * Throws `AnalysisError` with a user-presentable message on every failure path:
- * the app never fabricates a result when the model is unavailable.
- */
-export async function analyzeRock({ imageBase64, mediaType, context, lang, signal }: AnalyzeRockInput): Promise<AnalyzeRockOutput> {
+type ModelReply = { stop_reason: string | null; content: ReadonlyArray<{ type: string; text?: unknown }>; model: string };
+type UserContent = Array<
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "base64"; media_type: AllowedMediaType; data: string }; cache_control?: { type: "ephemeral" } }
+>;
+
+/** One model call with the shared settings; returns the text reply. Throws `AnalysisError`. */
+async function callModel(content: UserContent, signal: AbortSignal | undefined): Promise<{ text: string; model: string }> {
   const config = getAiConfig();
-  if (!config.apiKeyConfigured) {
-    throw new AnalysisError(
-      "AI_NOT_CONFIGURED",
-      503,
-      "The AI analysis service is not configured on this server. No identification was generated.",
-    );
-  }
-
-  const userContent = [
-    { type: "image" as const, source: { type: "base64" as const, media_type: mediaType, data: imageBase64 } },
-    { type: "text" as const, text: buildUserPrompt(context, lang) },
-  ];
-
-  // The report is too large for grammar-constrained structured outputs, so it is requested as
-  // JSON described in the system prompt and validated below (see lib/analysis/wire.ts).
-  let response: { stop_reason: string | null; content: ReadonlyArray<{ type: string; text?: unknown }>; model: string };
+  let response: ModelReply;
   try {
     response = config.serverFallbacks
       ? await getClient().beta.messages.create(
@@ -87,7 +93,7 @@ export async function analyzeRock({ imageBase64, mediaType, context, lang, signa
             betas: ["server-side-fallback-2026-07-01"],
             fallbacks: "default",
             system: ANALYSIS_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: userContent }],
+            messages: [{ role: "user", content }],
           },
           { signal },
         )
@@ -99,7 +105,7 @@ export async function analyzeRock({ imageBase64, mediaType, context, lang, signa
             thinking: { type: "adaptive" },
             output_config: { effort: config.effort },
             system: ANALYSIS_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: userContent }],
+            messages: [{ role: "user", content }],
           },
           { signal },
         );
@@ -120,19 +126,86 @@ export async function analyzeRock({ imageBase64, mediaType, context, lang, signa
   if (response.stop_reason === "max_tokens") {
     throw new AnalysisError("AI_INVALID_RESPONSE", 502, "The AI response was incomplete. Please try again.");
   }
-
-  const reply = response.content
+  const text = response.content
     .map((block) => (block.type === "text" && typeof block.text === "string" ? block.text : ""))
     .join("");
-  const report = parseWireReport(reply);
-  if (!report.ok) {
-    console.error(`[dr-rock] AI report rejected: ${report.reason.slice(0, 500)}`);
+  return { text, model: response.model };
+}
+
+/**
+ * Sends the photos to Claude and returns a validated, normalized report, in two passes:
+ * 1. analysis: the model writes the full report;
+ * 2. review: the model looks at the same photos again, checks the draft against a checklist and
+ *    returns a corrected report. If the review fails for any reason the first report is used, so
+ *    the extra pass can only improve a result, never lose one.
+ * Throws `AnalysisError` with a user-presentable message on every failure path of the first pass:
+ * the app never fabricates a result when the model is unavailable.
+ */
+export async function analyzeRock({ images, context, lang, signal, onStage, reviewBudgetMs }: AnalyzeRockInput): Promise<AnalyzeRockOutput> {
+  const config = getAiConfig();
+  if (!config.apiKeyConfigured) {
+    throw new AnalysisError(
+      "AI_NOT_CONFIGURED",
+      503,
+      "The AI analysis service is not configured on this server. No identification was generated.",
+    );
+  }
+  if (images.length === 0) {
+    throw new AnalysisError("INVALID_REQUEST", 400, "No image was received.");
+  }
+
+  // Each photo is introduced by a short label (its number and what it shows), so the model can
+  // refer to them and knows which one is the close-up or the scale shot. The photo blocks are
+  // identical in both passes and the last one carries a cache breakpoint, so the review pass
+  // reads the system prompt and photos from the prompt cache instead of paying for them again.
+  const photoBlocks: UserContent = images.flatMap((photo, i) => [
+    { type: "text" as const, text: photoLabel(i, images.length, photo.role) },
+    {
+      type: "image" as const,
+      source: { type: "base64" as const, media_type: photo.mediaType, data: photo.data },
+      ...(i === images.length - 1 ? { cache_control: { type: "ephemeral" as const } } : {}),
+    },
+  ]);
+
+  // The report is too large for grammar-constrained structured outputs, so it is requested as
+  // JSON described in the system prompt and validated below (see lib/analysis/wire.ts).
+  const firstStartedAt = Date.now();
+  await onStage?.("analyzing");
+  const first = await callModel([...photoBlocks, { type: "text", text: buildUserPrompt(context, lang, images.length) }], signal);
+  const draft = parseWireReport(first.text);
+  if (!draft.ok) {
+    console.error(`[dr-rock] AI report rejected: ${draft.reason.slice(0, 500)}`);
     const error = new AnalysisError("AI_INVALID_RESPONSE", 502, "The AI returned a report in an unexpected format. Please try again.");
-    error.detail = report.reason.slice(0, 500);
+    error.detail = draft.reason.slice(0, 500);
     throw error;
   }
 
-  return { analysis: normalizeAnalysis(fromWire(report.value)), model: response.model };
+  let final = draft.value;
+  let model = first.model;
+  let reviewed = false;
+  const withinBudget = reviewBudgetMs === undefined || Date.now() - firstStartedAt < reviewBudgetMs;
+  if (config.review && withinBudget && !signal?.aborted) {
+    try {
+      await onStage?.("reviewing");
+      const review = await callModel(
+        [...photoBlocks, { type: "text", text: buildReviewPrompt(JSON.stringify(draft.value), context, lang, images.length) }],
+        signal,
+      );
+      const checked = parseWireReport(review.text);
+      if (checked.ok) {
+        final = checked.value;
+        model = review.model;
+        reviewed = true;
+      } else {
+        console.error(`[dr-rock] review report rejected, keeping the first report: ${checked.reason.slice(0, 300)}`);
+      }
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      console.error("[dr-rock] review pass failed, keeping the first report:", error instanceof Error ? error.message : error);
+    }
+  }
+
+  return { analysis: normalizeAnalysis(fromWire(final)), model, reviewed };
 }
 
 /**
@@ -145,10 +218,22 @@ export async function runAnalysis(
   startedAt = Date.now(),
 ): Promise<{ status: number; body: AnalyzeResponse }> {
   try {
-    const { analysis, model } = await analyzeRock(input);
+    const { analysis, model, reviewed } = await analyzeRock(input);
     return {
       status: 200,
-      body: { ok: true, analysis, meta: { requestId, model, analyzedAt: new Date().toISOString(), durationMs: Date.now() - startedAt } },
+      body: {
+        ok: true,
+        analysis,
+        meta: {
+          requestId,
+          model,
+          analyzedAt: new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+          reviewed,
+          // The automatic centre crop is extra detail of photo 1, not another photo.
+          photoCount: input.images.filter((photo) => photo.role !== "detail").length,
+        },
+      },
     };
   } catch (error) {
     if (error instanceof AnalysisError) {

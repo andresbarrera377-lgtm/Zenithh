@@ -15,7 +15,7 @@ export const NON_RETRYABLE: AnalysisErrorCode[] = ["AI_NOT_CONFIGURED", "UNSUPPO
 
 export function AnalysisScreen() {
   const router = useRouter();
-  const { status, imageUrl, error, startAnalysis, cancelAnalysis } = useScanSession();
+  const { status, imageUrl, error, startAnalysis, cancelAnalysis, progress, photos } = useScanSession();
   const t = useMessages("analysis");
 
   useEffect(() => {
@@ -87,10 +87,21 @@ export function AnalysisScreen() {
     );
   }
 
-  return <Scanning imageUrl={imageUrl} onCancel={cancelAnalysis} />;
+  return <Scanning imageUrl={imageUrl} thumbs={photos.slice(1).map((p) => p.url)} progress={progress} onCancel={cancelAnalysis} />;
 }
 
-function Scanning({ imageUrl, onCancel }: { imageUrl: string; onCancel: () => void }) {
+function Scanning({
+  imageUrl,
+  thumbs,
+  progress,
+  onCancel,
+}: {
+  imageUrl: string;
+  thumbs: string[];
+  progress: "analyzing" | "reviewing" | null;
+  onCancel: () => void;
+}) {
+  const c = useMessages("capture").progress;
   const [messageIndex, setMessageIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const t = useMessages("analysis");
@@ -114,6 +125,15 @@ function Scanning({ imageUrl, onCancel }: { imageUrl: string; onCancel: () => vo
       <div className="relative aspect-[4/3] overflow-hidden rounded-[2rem] bg-carbon-900 ring-1 ring-granite-700 sm:aspect-[16/10]">
         <Image src={imageUrl} alt={t.specimenAnalyzing} fill unoptimized className="object-cover" />
         <ScannerOverlay />
+        {thumbs.length > 0 && (
+          <div className="absolute bottom-4 left-4 flex gap-2">
+            {thumbs.map((url) => (
+              <span key={url} className="relative h-14 w-14 overflow-hidden rounded-xl ring-2 ring-mineral-400/70">
+                <Image src={url} alt="" fill unoptimized className="object-cover" />
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-5 text-center" aria-live="polite">
@@ -124,6 +144,16 @@ function Scanning({ imageUrl, onCancel }: { imageUrl: string; onCancel: () => vo
           </span>
           {t.inProgress}
         </div>
+        {progress && (
+          <div className="mx-auto max-w-md space-y-1">
+            <div className="flex justify-center gap-2" aria-hidden>
+              <span className="h-1.5 w-12 rounded-full bg-mineral-400" />
+              <span className={cn("h-1.5 w-12 rounded-full transition-colors", progress === "reviewing" ? "bg-mineral-400" : "bg-granite-700")} />
+            </div>
+            <p className="font-mono text-xs font-semibold text-mineral-300">{progress === "reviewing" ? c.reviewing : c.analyzing}</p>
+            <p className="text-sm text-granite-400">{progress === "reviewing" ? c.reviewingText : c.analyzingText}</p>
+          </div>
+        )}
         <p key={messageIndex} className="animate-fade-up font-display text-2xl font-semibold text-chalk-50 sm:text-3xl">
           {messages[messageIndex]}
         </p>

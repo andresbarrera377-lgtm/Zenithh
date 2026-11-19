@@ -1,8 +1,10 @@
 import type { Locale } from "../config";
 import { analysis } from "./analysis";
 import { app } from "./app";
+import { capture } from "./capture";
 import { collection } from "./collection";
 import { common } from "./common";
+import { history } from "./history";
 import { landing } from "./landing";
 import { library } from "./library";
 import { pages } from "./pages";
@@ -11,7 +13,7 @@ import { report } from "./report";
 import { scan } from "./scan";
 
 /** Every UI namespace, in both languages. Add new namespaces here. */
-const NAMESPACES = { analysis, app, collection, common, landing, library, pages, pwa, report, scan };
+const NAMESPACES = { analysis, app, capture, collection, common, history, landing, library, pages, pwa, report, scan };
 
 export type Messages = { [K in keyof typeof NAMESPACES]: (typeof NAMESPACES)[K]["es"] };
 

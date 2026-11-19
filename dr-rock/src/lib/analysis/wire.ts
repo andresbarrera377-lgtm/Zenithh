@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CLASSIFICATIONS, IMAGE_QUALITIES, VERDICTS, type AgeEstimate, type RockAnalysis } from "./schema";
+import { CLASSIFICATIONS, IMAGE_QUALITIES, ORIGINS, VERDICTS, type AgeEstimate, type RockAnalysis } from "./schema";
 
 /**
  * Model-facing version of the report: the JSON Schema the model is asked to follow (sent in the
@@ -37,11 +37,35 @@ export const RockAnalysisWireSchema = z.object({
     quality: z.enum(IMAGE_QUALITIES).describe("Usefulness of the photo for identification."),
     showsRockOrFossil: z
       .boolean()
-      .describe("False if the photo does not show a rock, mineral or fossil (person, object, screenshot, etc.)."),
+      .describe("False if the photos show neither a rock, mineral or fossil nor a rock-like material (person, everyday object, screenshot, etc.). True for rock-like human-made materials and replicas."),
     subjectDescription: z.string().describe("Neutral description of what the photo shows, in one or two sentences."),
     issues: z.array(z.string()).describe("Problems limiting the analysis (blur, glare, distance, no scale, filters…). Empty if none."),
     photoTips: z.array(z.string()).describe("Concrete tips for a better photo of this specimen. 1–4 items."),
   }),
+
+  origin: z
+    .object({
+      verdict: z
+        .enum(ORIGINS)
+        .describe(
+          "natural = formed by nature, no sign of human work; human_modified = natural rock, mineral or fossil that people cut, sawed, polished, tumbled, dyed, carved, knapped, stabilised, restored or assembled; human_made = artificial material or object (concrete, mortar, brick, tile, ceramic, glass, slag, asphalt, plaster, plastic or resin replica, lab-grown crystal, metal); uncertain = the evidence does not settle it.",
+        ),
+      confidence: z.number().describe("Integer 0–100: how strongly the evidence supports this origin verdict."),
+      likelyObject: z
+        .string()
+        .describe(
+          "What it most likely is when not purely natural, e.g. 'Concrete fragment', 'Furnace slag', 'Resin replica of a trilobite', 'Tumbled, polished agate', 'Knapped flint flake'. Use '' when natural.",
+        ),
+      imitates: z
+        .string()
+        .describe("Natural thing it resembles or may be sold as, e.g. 'meteorite', 'obsidian', 'turquoise', 'trilobite fossil'. Use '' if none."),
+      evidence: z
+        .array(z.string())
+        .describe(
+          "1–5 specific visible clues that support this origin verdict (natural clues too), each saying which photo shows it.",
+        ),
+    })
+    .describe("Decide this before the identification: is the object natural, natural but worked by people, or made by people?"),
 
   verdict: z
     .enum(VERDICTS)
@@ -63,7 +87,7 @@ export const RockAnalysisWireSchema = z.object({
       .string()
       .describe("Most probable name, e.g. 'Fossiliferous limestone', 'Basalt', 'Quartz (crystal)'. 'Unidentified' if impossible."),
     rockType: z.string().describe("More specific type or group, e.g. 'Bioclastic carbonate sedimentary rock'."),
-    classification: z.enum(CLASSIFICATIONS).describe("Rock family. Use 'mineral' for a single mineral specimen."),
+    classification: z.enum(CLASSIFICATIONS).describe("Rock family. Use 'mineral' for a single mineral specimen and 'artificial' for a human-made material."),
     alternatives: z
       .array(z.object({ name: z.string(), reason: z.string() }))
       .describe("0–3 other plausible identifications (including pseudofossils when relevant) and why."),
@@ -176,10 +200,11 @@ function ageToWire(age: AgeEstimate | null): WireAge {
 
 /** Converts the model's union-free report into the app's report (sentinels → null). */
 export function fromWire(wire: RockAnalysisWire): RockAnalysis {
-  const { ageAndHistory, composition, identification, paleontology } = wire;
+  const { ageAndHistory, composition, identification, paleontology, origin } = wire;
   const fossilAge = ageAndHistory.fossilAge.summary.trim() ? ageFromWire(ageAndHistory.fossilAge) : null;
   return {
     ...wire,
+    origin: { ...origin, likelyObject: text(origin.likelyObject), imitates: text(origin.imitates) },
     identification: { ...identification, fossilType: text(identification.fossilType) },
     ageAndHistory: { ...ageAndHistory, rockAge: ageFromWire(ageAndHistory.rockAge), fossilAge },
     composition: {
@@ -203,8 +228,10 @@ export function fromWire(wire: RockAnalysisWire): RockAnalysis {
 /** Inverse of `fromWire`, used to build model-shaped fixtures in tests. */
 export function toWire(analysis: RockAnalysis): RockAnalysisWire {
   const { ageAndHistory, composition, identification, paleontology } = analysis;
+  const origin = analysis.origin ?? { verdict: "uncertain" as const, confidence: 0, likelyObject: null, imitates: null, evidence: [] };
   return {
     ...analysis,
+    origin: { ...origin, likelyObject: origin.likelyObject ?? "", imitates: origin.imitates ?? "" },
     identification: { ...identification, fossilType: identification.fossilType ?? "" },
     ageAndHistory: { ...ageAndHistory, rockAge: ageToWire(ageAndHistory.rockAge), fossilAge: ageToWire(ageAndHistory.fossilAge) },
     composition: {

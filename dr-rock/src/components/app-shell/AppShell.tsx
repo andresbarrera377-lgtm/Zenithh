@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenText, Gem, House, Info, ScanLine, type LucideIcon } from "lucide-react";
+import { BookOpenText, Gem, History, House, Info, ScanLine, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
@@ -19,14 +19,17 @@ interface NavItem {
   icon: LucideIcon;
   /** Extra path prefixes that should highlight this item. */
   match?: string[];
+  /** Hidden from the 5-slot mobile tab bar (still in the sidebar and linked from Home). */
+  sidebarOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
   { href: "/app", key: "home", icon: House },
   { href: "/app/scan", key: "scan", icon: ScanLine, match: ["/app/analysis", "/app/results"] },
   { href: "/app/library", key: "library", icon: BookOpenText },
+  { href: "/app/history", key: "history", icon: History },
   { href: "/app/collection", key: "collection", icon: Gem },
-  { href: "/app/about", key: "about", icon: Info },
+  { href: "/app/about", key: "about", icon: Info, sidebarOnly: true },
 ];
 
 function isActive(pathname: string, item: NavItem) {
@@ -127,7 +130,7 @@ function TabBarNav({ pathname }: { pathname: string }) {
   const t = useMessages("common");
   return (
     <ul className="mx-auto grid h-16 max-w-md grid-cols-5 items-center px-2">
-      {NAV.map((item) => {
+      {NAV.filter((item) => !item.sidebarOnly).map((item) => {
         const active = isActive(pathname, item);
         const Icon = item.icon;
         const isScan = item.href === "/app/scan";

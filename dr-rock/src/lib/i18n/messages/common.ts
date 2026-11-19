@@ -8,8 +8,8 @@ export const common = defineMessages({
     disclaimer:
       "La identificación a partir de una foto es una estimación educativa. No sustituye el examen de un geólogo o paleontólogo profesional, las pruebas de laboratorio ni la datación radiométrica.",
     home: "Inicio de Dr.Rock",
-    nav: { home: "Inicio", scan: "Escanear", library: "Biblioteca", collection: "Mi colección", about: "Acerca de" },
-    navShort: { home: "Inicio", scan: "Escanear", library: "Biblioteca", collection: "Colección", about: "Acerca" },
+    nav: { home: "Inicio", scan: "Escanear", library: "Biblioteca", history: "Historial", collection: "Mi colección", about: "Acerca de" },
+    navShort: { home: "Inicio", scan: "Escanear", library: "Biblioteca", history: "Historial", collection: "Colección", about: "Acerca" },
     mainNav: "Principal",
     backToWebsite: "← Web de Dr.Rock",
     language: { label: "Idioma", switchTo: "Switch to English", current: "Español" },
@@ -31,8 +31,8 @@ export const common = defineMessages({
     disclaimer:
       "Photo-based identification is an educational estimate. It does not replace examination by a professional geologist or paleontologist, laboratory testing or radiometric dating.",
     home: "Dr.Rock home",
-    nav: { home: "Home", scan: "Scan rock", library: "Rock Library", collection: "My Collection", about: "About" },
-    navShort: { home: "Home", scan: "Scan", library: "Library", collection: "Collection", about: "About" },
+    nav: { home: "Home", scan: "Scan rock", library: "Rock Library", history: "History", collection: "My Collection", about: "About" },
+    navShort: { home: "Home", scan: "Scan", library: "Library", history: "History", collection: "Collection", about: "About" },
     mainNav: "Main",
     backToWebsite: "← Dr.Rock website",
     language: { label: "Language", switchTo: "Cambiar a español", current: "English" },

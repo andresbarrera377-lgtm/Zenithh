@@ -1,8 +1,11 @@
 import type { Locale } from "../i18n/config";
-import type { AnalyzeResponse, FieldContext } from "./schema";
+import type { UploadRole } from "./photos";
+import type { AnalyzeResponse, FieldContext, FieldTests } from "./schema";
 
-/** Upper bound for a single analysis request from the browser. */
-const CLIENT_TIMEOUT_MS = 4.5 * 60 * 1000;
+/** Upper bound for a whole analysis from the browser (two AI passes with several photos). */
+const CLIENT_TIMEOUT_MS = 8 * 60 * 1000;
+
+export type AnalysisProgress = "analyzing" | "reviewing";
 
 function failure(code: Extract<AnalyzeResponse, { ok: false }>["error"]["code"], message: string): AnalyzeResponse {
   return { ok: false, error: { code, message } };
@@ -13,6 +16,7 @@ interface JobAccepted {
   pending: true;
   jobId: string;
   pollAfterMs?: number;
+  stage?: AnalysisProgress;
 }
 
 const DEFAULT_POLL_MS = 2500;
@@ -58,19 +62,28 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
  * report is ready. Never throws: every failure is returned as a typed error so the UI can show an
  * honest message instead of a fake result.
  */
+export interface UploadPhoto {
+  blob: Blob;
+  role?: UploadRole;
+}
+
 export async function requestAnalysis(
-  image: Blob,
+  photos: Blob | UploadPhoto[],
   context: FieldContext | undefined,
   signal?: AbortSignal,
   /** Language the AI writes the report in. */
   lang?: Locale,
+  /** Called with the server's progress ("analyzing", then "reviewing") while a job runs. */
+  onProgress?: (stage: AnalysisProgress) => void,
 ): Promise<AnalyzeResponse> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return failure("OFFLINE", "You appear to be offline. Connect to the internet to analyze a rock.");
   }
 
+  const list: UploadPhoto[] = photos instanceof Blob ? [{ blob: photos }] : photos;
   const form = new FormData();
-  form.append("image", image, "specimen.jpg");
+  list.forEach((photo, i) => form.append("image", photo.blob, `specimen-${i + 1}.jpg`));
+  if (list.some((p) => p.role)) form.append("photoRoles", JSON.stringify(list.map((p) => p.role ?? null)));
   const cleaned = cleanContext(context);
   if (cleaned) form.append("context", JSON.stringify(cleaned));
   if (lang) form.append("lang", lang);
@@ -109,6 +122,7 @@ export async function requestAnalysis(
       networkFailures = 0;
       const next = await readJson(poll);
       if (isPending(next)) {
+        if (next.stage === "analyzing" || next.stage === "reviewing") onProgress?.(next.stage);
         wait = next.pollAfterMs ?? DEFAULT_POLL_MS;
         continue;
       }
@@ -127,10 +141,21 @@ export async function requestAnalysis(
   }
 }
 
-function cleanContext(context: FieldContext | undefined): FieldContext | null {
+/** Drops empty notes and untested items; returns null when nothing is left to send. */
+export function cleanContext(context: FieldContext | undefined): FieldContext | null {
   if (!context) return null;
-  const entries = Object.entries(context).filter(([, v]) => typeof v === "string" && v.trim().length > 0);
-  return entries.length ? (Object.fromEntries(entries.map(([k, v]) => [k, (v as string).trim()])) as FieldContext) : null;
+  const out: FieldContext = {};
+  for (const key of ["location", "size", "notes"] as const) {
+    const value = context[key]?.trim();
+    if (value) out[key] = value;
+  }
+  const tests: FieldTests = {};
+  for (const [key, value] of Object.entries(context.tests ?? {})) {
+    const v = typeof value === "string" ? value.trim() : value;
+    if (v) (tests as Record<string, unknown>)[key] = v;
+  }
+  if (Object.keys(tests).length > 0) out.tests = tests;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 export async function fetchAiStatus(): Promise<{ configured: boolean; model: string | null } | null> {

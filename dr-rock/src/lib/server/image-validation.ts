@@ -9,7 +9,8 @@ export type AllowedMediaType = (typeof ALLOWED_MEDIA_TYPES)[number];
 
 /**
  * 3.5 MB raw ≈ 4.7 MB once base64-encoded, safely below the 5 MB per-image limit of the
- * Claude API. The client downsizes photos to ~1600 px JPEGs (usually < 1 MB) before upload.
+ * Claude API. The client prepares photos as ≤2576 px JPEGs of about 1.35 MB at most before
+ * upload (see lib/analysis/photos.ts for the per-request budget).
  */
 export const MAX_IMAGE_BYTES = 3.5 * 1024 * 1024;
 export const MIN_IMAGE_DIMENSION = 200;

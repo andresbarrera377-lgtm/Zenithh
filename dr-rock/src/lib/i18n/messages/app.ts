@@ -23,6 +23,8 @@ export const app = defineMessages<{
     upload: Step;
     recent: string;
     myCollection: string;
+    history: string;
+    howItWorks: string;
     specimenOfDay: string;
     readEntry: string;
     exploreLibrary: string;
@@ -73,6 +75,8 @@ export const app = defineMessages<{
       upload: { title: "Subir imagen", text: "Analiza una foto de tu galería o tu ordenador." },
       recent: "Descubrimientos recientes",
       myCollection: "Mi colección",
+      history: "Historial",
+      howItWorks: "Cómo funciona →",
       specimenOfDay: "Ejemplar del día",
       readEntry: "Leer la ficha",
       exploreLibrary: "Explora la biblioteca de rocas",
@@ -89,15 +93,15 @@ export const app = defineMessages<{
       pipeline: [
         {
           title: "1 · Se prepara en tu dispositivo",
-          text: "La foto se gira, se reduce a ~1600 px y se vuelve a codificar como JPEG en tu navegador. Así se eliminan los metadatos EXIF, incluida la ubicación GPS.",
+          text: "Hasta 3 fotos del mismo ejemplar se giran, se ajustan a 2576 px (la resolución máxima que lee la IA) y se vuelven a codificar en JPEG en tu navegador, que además comprueba si están enfocadas y bien expuestas. Se eliminan los metadatos EXIF, incluida la ubicación GPS.",
         },
         {
           title: "2 · Se envía a un servidor seguro",
           text: "El servidor de Dr.Rock valida el archivo (formato real, tamaño y dimensiones) y aplica límites de uso. La clave de la API del proveedor de IA solo existe en el servidor.",
         },
         {
-          title: "3 · La examina una IA multimodal",
-          text: "Un modelo multimodal Claude estudia la textura, el color, la forma, los patrones, las estructuras, las posibles impresiones de organismos, los minerales y los rasgos sedimentarios, y devuelve un informe JSON estructurado.",
+          title: "3 · La examina una IA en dos pasadas",
+          text: "Un modelo multimodal Claude estudia todas las fotos y tus pruebas de campo, decide si el objeto es natural o hecho por personas, compara las identificaciones posibles y redacta el informe. En una segunda pasada vuelve a mirar las fotos, revisa el informe y corrige lo que no encaje.",
         },
         {
           title: "4 · Se comprueba con reglas científicas",
@@ -149,6 +153,8 @@ export const app = defineMessages<{
       upload: { title: "Upload image", text: "Analyze a photo from your gallery or computer." },
       recent: "Recent discoveries",
       myCollection: "My Collection",
+      history: "History",
+      howItWorks: "How it works →",
       specimenOfDay: "Specimen of the day",
       readEntry: "Read entry",
       exploreLibrary: "Explore the Rock Library",
@@ -165,15 +171,15 @@ export const app = defineMessages<{
       pipeline: [
         {
           title: "1 · Prepared on your device",
-          text: "The photo is rotated, resized to ~1600 px and re-encoded as JPEG in your browser. This removes EXIF metadata, including GPS location.",
+          text: "Up to 3 photos of the same specimen are rotated, sized to 2576 px (the most detail the AI can read) and re-encoded as JPEG in your browser, which also checks that they are in focus and well exposed. EXIF metadata, including GPS location, is removed.",
         },
         {
           title: "2 · Sent to a secure backend",
           text: "Dr.Rock's server validates the file (real format, size, dimensions) and applies rate limits. The AI provider's API key exists only on the server.",
         },
         {
-          title: "3 · Examined by a multimodal AI",
-          text: "A multimodal Claude model studies texture, colour, shape, patterns, structures, possible organism impressions, minerals and sedimentary features, and returns a structured JSON report.",
+          title: "3 · Examined by an AI in two passes",
+          text: "A multimodal Claude model studies every photo and your field tests, decides whether the object is natural or made by people, compares the possible identifications and writes the report. A second pass looks at the photos again, reviews the report and corrects anything that does not fit.",
         },
         {
           title: "4 · Checked against scientific rules",

@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   switch (status.state) {
     case "pending":
-      return Response.json({ pending: true, jobId: id, pollAfterMs: 2500 }, { headers: NO_STORE });
+      return Response.json({ pending: true, jobId: id, pollAfterMs: 2500, stage: status.stage }, { headers: NO_STORE });
     case "done":
       return Response.json(status.response, { headers: NO_STORE });
     case "expired":

@@ -1,13 +1,32 @@
-import type { Classification, Verdict } from "../../analysis/schema";
+import type { Classification, Origin, Verdict } from "../../analysis/schema";
 import { defineMessages } from "../define";
 
 type VerdictText = Record<Verdict, { label: string; short: string; description: string }>;
 type ClassText = Record<Classification, { label: string; description: string }>;
+type OriginText = Record<Origin, { label: string; short: string; description: string }>;
 type Layer = { name: string; depth: string; detail: string };
 
 export const report = defineMessages<{
   verdicts: VerdictText;
   classifications: ClassText;
+  origins: OriginText;
+  origin: {
+    title: string;
+    confidence: (n: number) => string;
+    likely: string;
+    imitates: string;
+    evidence: string;
+    heritage: string;
+  };
+  precision: {
+    reviewed: string;
+    reviewedText: string;
+    photos: (n: number) => string;
+    tests: (n: number) => string;
+    improveTitle: string;
+    improveText: string;
+    improveButton: string;
+  };
   levels: { high: string; moderate: string; low: string };
   summary: {
     eyebrow: string;
@@ -114,7 +133,35 @@ export const report = defineMessages<{
       sedimentary: { label: "Sedimentaria", description: "Formada por sedimentos, minerales o restos orgánicos depositados y cementados." },
       metamorphic: { label: "Metamórfica", description: "Transformada por calor, presión o fluidos sin llegar a fundirse." },
       mineral: { label: "Mineral", description: "Una única sustancia cristalina de origen natural." },
+      artificial: { label: "Artificial", description: "Material hecho por personas, no formado por la naturaleza." },
       unknown: { label: "Sin determinar", description: "No se pudo determinar la familia de la roca a partir de esta foto." },
+    },
+    origins: {
+      natural: { label: "Natural", short: "Natural", description: "Formado por la naturaleza, sin señales de trabajo humano." },
+      human_modified: {
+        label: "Natural, trabajado por personas",
+        short: "Modificado por personas",
+        description: "Material natural que alguien cortó, pulió, tiñó, talló, restauró o ensambló.",
+      },
+      human_made: { label: "Hecho por personas", short: "Artificial", description: "Material u objeto fabricado: no es una roca, mineral ni fósil natural." },
+      uncertain: { label: "Origen incierto", short: "Incierto", description: "Las fotos no bastan para saber si es natural o fabricado." },
+    },
+    origin: {
+      title: "¿Natural o hecho por personas?",
+      confidence: (n) => `Confianza ${n}\u00a0%`,
+      likely: "Probablemente es",
+      imitates: "Se parece a / se vende como",
+      evidence: "Pistas observadas",
+      heritage: "Si crees que es una herramienta o un objeto arqueológico, no lo guardes: avisa a las autoridades de patrimonio de tu zona.",
+    },
+    precision: {
+      reviewed: "Verificado en 2 pasadas",
+      reviewedText: "Un segundo análisis revisó el informe contra las fotos antes de mostrártelo.",
+      photos: (n) => (n === 1 ? "1 foto analizada" : `${n} fotos analizadas`),
+      tests: (n) => (n === 1 ? "1 prueba de campo" : `${n} pruebas de campo`),
+      improveTitle: "Mejora la precisión",
+      improveText: "La confianza es moderada. Añade lo que sugiere el informe (otra foto o una prueba sencilla) y vuelve a analizar: se mantienen tus fotos.",
+      improveButton: "Añadir fotos o pruebas",
     },
     levels: { high: "Alta", moderate: "Media", low: "Baja" },
     summary: {
@@ -236,7 +283,35 @@ export const report = defineMessages<{
       sedimentary: { label: "Sedimentary", description: "Formed from deposited and cemented sediments, minerals or organic remains." },
       metamorphic: { label: "Metamorphic", description: "Transformed by heat, pressure or fluids without melting." },
       mineral: { label: "Mineral", description: "A single naturally occurring crystalline substance." },
+      artificial: { label: "Artificial", description: "A material made by people, not formed by nature." },
       unknown: { label: "Undetermined", description: "The rock family could not be determined from this photo." },
+    },
+    origins: {
+      natural: { label: "Natural", short: "Natural", description: "Formed by nature, with no sign of human work." },
+      human_modified: {
+        label: "Natural, worked by people",
+        short: "Human-modified",
+        description: "Natural material that someone cut, polished, dyed, carved, restored or assembled.",
+      },
+      human_made: { label: "Made by people", short: "Artificial", description: "A manufactured material or object — not a natural rock, mineral or fossil." },
+      uncertain: { label: "Origin uncertain", short: "Uncertain", description: "The photos are not enough to tell whether it is natural or manufactured." },
+    },
+    origin: {
+      title: "Natural or made by people?",
+      confidence: (n) => `${n}% confidence`,
+      likely: "Most likely",
+      imitates: "Resembles / sold as",
+      evidence: "Clues observed",
+      heritage: "If you think it is a tool or an archaeological object, don't keep it: report it to your local heritage authorities.",
+    },
+    precision: {
+      reviewed: "Checked in 2 passes",
+      reviewedText: "A second analysis reviewed the report against the photos before showing it to you.",
+      photos: (n) => (n === 1 ? "1 photo analyzed" : `${n} photos analyzed`),
+      tests: (n) => (n === 1 ? "1 field test" : `${n} field tests`),
+      improveTitle: "Improve the accuracy",
+      improveText: "Confidence is moderate. Add what the report suggests (another photo or a simple test) and analyze again — your photos are kept.",
+      improveButton: "Add photos or tests",
     },
     levels: { high: "High", moderate: "Moderate", low: "Low" },
     summary: {

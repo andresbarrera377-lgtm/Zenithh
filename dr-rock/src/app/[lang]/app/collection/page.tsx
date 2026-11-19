@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CollectionBrowser } from "@/components/collection/CollectionBrowser";
+import { HistoryTabs } from "@/components/history/HistoryTabs";
 import { PageHeader } from "@/components/ui/primitives";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 
@@ -12,6 +13,7 @@ export default async function CollectionPage() {
   const t = getMessages(await getLocale()).collection.page;
   return (
     <div className="space-y-8">
+      <HistoryTabs active="collection" />
       <PageHeader eyebrow={t.eyebrow} title={t.title} description={t.lead} />
       <CollectionBrowser />
     </div>

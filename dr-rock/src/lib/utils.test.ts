@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMa, formatMaRange } from "./utils";
+import { formatBytes, formatMa, formatMaRange } from "./utils";
 
 describe("formatMa / formatMaRange", () => {
   it("treats 0 Ma as the present", () => {
@@ -30,3 +30,12 @@ describe("Spanish formatting", () => {
   });
 });
 
+
+describe("formatBytes", () => {
+  it("picks a readable unit", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(48 * 1024 * 1024)).toBe("48 MB");
+    expect(formatBytes(1.5 * 1024 * 1024, "es")).toBe("1,5 MB");
+  });
+});

@@ -39,26 +39,29 @@
 
 ## 3. Cómo funciona el análisis de imágenes
 
-1. **Captura** (`components/scan/*`): cámara en vivo con `getUserMedia` (cámara trasera, linterna y cambio de cámara si el dispositivo lo admite) o `<input capture>` como alternativa; también subida y arrastrar y soltar.
-2. **Preparación en el cliente** (`lib/image/process-image.ts`): decodifica la imagen (respetando la orientación EXIF), comprueba un mínimo de 200 px, la reduce a 1600 px como máximo y la re-codifica en JPEG de 2,5 MB como máximo. Al re-codificar se **eliminan los metadatos**, incluido el GPS. También genera una miniatura de 480 px para la colección.
-3. **Envío** (`lib/analysis/client.ts`): `multipart/form-data` con la imagen y notas de campo opcionales (lugar, tamaño, observaciones). Tiene timeout, cancelación y detecta cuando no hay conexión.
+1. **Captura** (`components/scan/*`): hasta 3 fotos guiadas del mismo ejemplar (vista general, primer plano, otra cara o escala). Cámara en vivo con `getUserMedia` (cámara trasera a 4K ideal, linterna, zoom y toque para enfocar con `pointsOfInterest` si el dispositivo lo admite) que toma la foto con `ImageCapture.takePhoto()` a resolución completa cuando existe (si no, un fotograma del vídeo) y se queda abierta para la siguiente foto; `<input capture>` como alternativa; también subida de varias imágenes y arrastrar y soltar.
+2. **Preparación en el cliente** (`lib/image/process-image.ts`, `lib/image/quality.ts`): decodifica la imagen (respetando la orientación EXIF), comprueba un mínimo de 200 px y la ajusta a **2576 px** (la resolución máxima que lee el modelo) con la mejor calidad JPEG que cabe en ~1,35 MB (si no cabe, 2048 o 1600 px). Al re-codificar se **eliminan los metadatos**, incluido el GPS. Un control de calidad en el propio dispositivo mide el enfoque (varianza del laplaciano en las zonas más nítidas, para no penalizar rocas lisas), la exposición (por las luces y el recorte, no por la media, para no penalizar rocas negras o blancas), el contraste y la resolución, y avisa sin bloquear. Si la foto original supera 3000 px, también se prepara un recorte del centro a resolución completa. Miniatura de 480 px para la colección y el historial.
+3. **Envío** (`lib/analysis/client.ts`, `lib/scan/session.tsx`): `multipart/form-data` con las fotos (campos `image` repetidos y `photoRoles`), el recorte automático si cabe en el presupuesto de 3 imágenes y ~4,3 MB (`lib/analysis/photos.ts`, por el límite de ~6 MB por petición de Netlify), las notas de campo y las **pruebas de campo** estructuradas (vinagre, dureza, imán, peso, raya). Tiene timeout (8 min), cancelación, detecta cuando no hay conexión y muestra en qué pasada está el análisis.
 4. **Validación en el servidor** (`app/api/analyze/route.ts`, `lib/server/*`):
    - rate limit por IP (ventana deslizante en memoria);
-   - límite de tamaño (3,5 MB, por debajo del límite de 5 MB por imagen de la API);
+   - de 1 a 3 imágenes, cada una de 3,5 MB como máximo (límite de 5 MB por imagen de la API) y ~4,3 MB en total;
    - formato real detectado por *magic bytes* (JPEG, PNG, WebP, GIF), sin fiarse del MIME declarado;
    - dimensiones leídas de la cabecera (entre 200 y 8000 px);
-   - notas validadas con Zod (longitudes máximas).
-5. **Llamada al modelo** (`lib/ai/analyze-rock.ts`): `client.beta.messages.parse` con:
-   - el *system prompt* científico (`lib/ai/prompt.ts`), que aplica estas reglas: evidencia primero, considerar pseudofósiles, veredictos definidos, confianza calibrada, edades solo como rangos, fósiles solo en la corteza, y tratar las notas del usuario como datos y no como instrucciones;
-   - `output_config.format` = JSON Schema generado desde `RockAnalysisSchema` (las descripciones de los campos actúan como instrucciones);
-   - razonamiento adaptativo y `effort` configurable;
-   - *server-side fallback* (`fallbacks: "default"`), que reintenta en el modelo recomendado si el principal declina por políticas.
+   - notas y pruebas validadas con Zod (valores permitidos y longitudes máximas).
+5. **Llamada al modelo, en dos pasadas** (`lib/ai/analyze-core.ts`): `messages.create` con razonamiento adaptativo y `effort` configurable (alto por defecto). Cada foto va precedida de una etiqueta ("Photo 2 of 3 — close-up…") y la última lleva un punto de caché, de modo que la segunda pasada lee el *system prompt* y las fotos de la caché.
+   - *System prompt* científico (`lib/ai/prompt.ts`): evidencia primero y diagnóstico diferencial; **¿natural o hecho por personas?** (hormigón, ladrillo, cerámica, vidrio, escoria, resina, cristales de laboratorio; piedras cortadas, pulidas, teñidas, talladas o reconstruidas, herramientas de piedra y fósiles falsos o restaurados; y cosas naturales que parecen artificiales); pseudofósiles; veredictos definidos; confianza calibrada; uso combinado de varias fotos; interpretación de las pruebas de campo; edades solo como rangos; fósiles solo en la corteza; y notas del usuario tratadas como datos, no como instrucciones. El esquema JSON del informe (`lib/analysis/wire.ts`) va en el prompt y la respuesta se valida con Zod.
+   - **Pasada 1 (análisis)**: el modelo redacta el informe completo.
+   - **Pasada 2 (verificación)**: con las mismas fotos y el borrador, revisa origen, identificación y alternativas, veredicto de fósil (pseudofósiles, réplicas, restauraciones), confianza y datos, y devuelve el informe corregido. Si la revisión falla o devuelve algo inválido se usa el primer informe. Se desactiva con `DR_ROCK_REVIEW=off`; sin modo trabajo, solo se hace si la primera pasada tardó menos de 110 s.
+   - En Netlify el análisis corre en una función de fondo (`netlify/functions/analyze-background.mts`), que va anotando la pasada en el trabajo para que la app la muestre.
+   - *Server-side fallback* (`fallbacks: "default"`) cuando el entorno admite cabeceras beta.
 6. **Comprobaciones posteriores** (`lib/analysis/normalize.ts`), que se aplican aunque el modelo no las cumpla:
-   - si la imagen no muestra una roca o es inutilizable, el veredicto es `insufficient_image`;
+   - si la imagen no muestra una roca ni un material parecido o es inutilizable, el veredicto es `insufficient_image`;
+   - un objeto **hecho por personas** nunca queda como `probable_fossil` y su clasificación pasa a `artificial`;
    - `probable_fossil` exige una confianza de fósil de al menos 55; si no, pasa a `inconclusive_fossil_like`;
    - los campos de fósil se vacían si el veredicto no indica nada fosilífero;
    - las confianzas se limitan a 0–100, la dureza de Mohs a 1–10 y las edades a 0–4567 Ma (ordenadas), y las listas se recortan.
-7. **Errores honestos**: cada fallo devuelve un código tipado (`AI_NOT_CONFIGURED`, `AI_UNAVAILABLE`, `AI_BUSY`, `AI_REFUSED`, `AI_INVALID_RESPONSE`, `RATE_LIMITED`, `INVALID_IMAGE`, …). La interfaz muestra un mensaje claro y nunca genera un resultado de reemplazo.
+7. **Historial** (`lib/history/*`, `lib/storage/idb.ts`): cada resultado se guarda automáticamente en IndexedDB (versión 2 de la base de datos, que añade el almacén `history` sin tocar la colección) con sus fotos, el informe, las notas y las pruebas; se conservan los 30 más recientes. Desde el historial se puede guardar en la colección o volver a cargar las fotos en el escáner para añadir más datos y analizar de nuevo.
+8. **Errores honestos**: cada fallo devuelve un código tipado (`AI_NOT_CONFIGURED`, `AI_UNAVAILABLE`, `AI_BUSY`, `AI_REFUSED`, `AI_INVALID_RESPONSE`, `RATE_LIMITED`, `INVALID_IMAGE`, …). La interfaz muestra un mensaje claro y nunca genera un resultado de reemplazo.
 
 ## 4. Estructura del proyecto
 

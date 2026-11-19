@@ -20,10 +20,31 @@ export const VERDICTS = [
 ] as const;
 export type Verdict = (typeof VERDICTS)[number];
 
-export const CLASSIFICATIONS = ["igneous", "sedimentary", "metamorphic", "mineral", "unknown"] as const;
+export const CLASSIFICATIONS = ["igneous", "sedimentary", "metamorphic", "mineral", "artificial", "unknown"] as const;
 export type Classification = (typeof CLASSIFICATIONS)[number];
 
 export const IMAGE_QUALITIES = ["good", "fair", "poor", "unusable"] as const;
+
+/**
+ * Whether the object is natural or made by people:
+ * natural = formed by nature with no sign of human work;
+ * human_modified = natural rock, mineral or fossil that people cut, polished, tumbled, dyed,
+ *   carved, knapped, stabilised, restored or assembled;
+ * human_made = artificial material or object (concrete, brick, ceramic, glass, slag, plastic or
+ *   resin replica, lab-grown crystal, metal);
+ * uncertain = the evidence does not settle it.
+ */
+export const ORIGINS = ["natural", "human_modified", "human_made", "uncertain"] as const;
+export type Origin = (typeof ORIGINS)[number];
+
+export const OriginSchema = z.object({
+  verdict: z.enum(ORIGINS),
+  confidence: z.number().describe("Integer 0–100: how strongly the evidence supports the origin verdict."),
+  likelyObject: z.string().nullable().describe("What it most likely is when not purely natural, e.g. 'Furnace slag'."),
+  imitates: z.string().nullable().describe("Natural thing it resembles or is sold as, e.g. 'meteorite', 'turquoise'."),
+  evidence: z.array(z.string()).describe("Specific visible clues for the origin verdict."),
+});
+export type OriginAssessment = z.infer<typeof OriginSchema>;
 
 const AgeEstimateSchema = z.object({
   summary: z
@@ -60,6 +81,9 @@ export const RockAnalysisSchema = z.object({
     issues: z.array(z.string()).describe("Problems limiting the analysis (blur, glare, distance, no scale, filters…). Empty if none."),
     photoTips: z.array(z.string()).describe("Concrete tips for a better photo of this specimen. 1–4 items."),
   }),
+
+  /** Natural or made by people. Optional because reports saved before it existed lack it. */
+  origin: OriginSchema.optional(),
 
   verdict: z
     .enum(VERDICTS)
@@ -181,11 +205,38 @@ export const RockAnalysisSchema = z.object({
 export type RockAnalysis = z.infer<typeof RockAnalysisSchema>;
 export type AgeEstimate = z.infer<typeof AgeEstimateSchema>;
 
+/**
+ * Simple field tests anyone can do. Each answer is optional; a missing key means "not tested".
+ * - fizz: a drop of vinegar (or dilute acid) on the rock
+ * - hardness: soft = a fingernail scratches it; medium = a steel knife or nail scratches it but a
+ *   fingernail does not; hard = it scratches glass and a knife does not scratch it
+ * - magnet: whether a magnet sticks to it
+ * - heft: how heavy it feels compared with an ordinary stone of the same size
+ * - streak: colour of the powder it leaves on unglazed porcelain (free text)
+ */
+export const FIELD_TEST_OPTIONS = {
+  fizz: ["strong", "weak", "none"],
+  hardness: ["soft", "medium", "hard"],
+  magnet: ["strong", "weak", "none"],
+  heft: ["light", "normal", "heavy"],
+} as const;
+export type FieldTestKey = keyof typeof FIELD_TEST_OPTIONS;
+
+export const FieldTestsSchema = z.object({
+  fizz: z.enum(FIELD_TEST_OPTIONS.fizz).optional(),
+  hardness: z.enum(FIELD_TEST_OPTIONS.hardness).optional(),
+  magnet: z.enum(FIELD_TEST_OPTIONS.magnet).optional(),
+  heft: z.enum(FIELD_TEST_OPTIONS.heft).optional(),
+  streak: z.string().trim().max(40).optional(),
+});
+export type FieldTests = z.infer<typeof FieldTestsSchema>;
+
 /** Optional context the user can add about where/how the specimen was found. */
 export const FieldContextSchema = z.object({
   location: z.string().trim().max(120).optional(),
   size: z.string().trim().max(60).optional(),
   notes: z.string().trim().max(500).optional(),
+  tests: FieldTestsSchema.optional(),
 });
 export type FieldContext = z.infer<typeof FieldContextSchema>;
 
@@ -194,6 +245,10 @@ export interface AnalysisMeta {
   model: string;
   analyzedAt: string;
   durationMs: number;
+  /** True when a second pass re-examined the photos and corrected the report. */
+  reviewed?: boolean;
+  /** Number of photos the analysis used. */
+  photoCount?: number;
 }
 
 export type AnalysisErrorCode =

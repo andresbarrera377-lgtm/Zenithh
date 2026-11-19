@@ -9,6 +9,7 @@ import type { RockAnalysis, Verdict } from "@/lib/analysis/schema";
 import { useLocale, useMessages } from "@/lib/i18n/client";
 import { cn, formatMaRange } from "@/lib/utils";
 import { ConfidenceGauge } from "./ConfidenceGauge";
+import { OriginBadge, OriginPanel } from "./OriginPanel";
 
 const TONE_TEXT = {
   mineral: "text-mineral-300",
@@ -85,6 +86,9 @@ export function ResultSummary({
           <div className="pointer-events-none absolute inset-3 rounded-2xl ring-1 ring-chalk-50/10" aria-hidden />
           <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2">
             <VerdictBadge verdict={verdict} className="bg-carbon-950/75 backdrop-blur" />
+            {analysis.origin && analysis.origin.verdict !== "natural" && (
+              <OriginBadge origin={analysis.origin.verdict} className="bg-carbon-950/75 backdrop-blur" />
+            )}
           </div>
         </div>
 
@@ -97,6 +101,8 @@ export function ResultSummary({
             <p className="text-granite-300">{identification.rockType}</p>
             <p className="text-[15px] leading-relaxed text-granite-200">{analysis.verdictSummary}</p>
           </div>
+
+          {analysis.origin && <OriginPanel origin={analysis.origin} />}
 
           <div className="grid gap-3 @md/info:grid-cols-2">
             <div className="flex items-center gap-4 rounded-2xl bg-carbon-900/70 p-4 ring-1 ring-granite-700/70 @md/info:col-span-2 @xl/info:col-span-1 @xl/info:row-span-2 @xl/info:flex-col @xl/info:justify-center @xl/info:text-center">

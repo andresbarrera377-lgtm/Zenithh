@@ -18,6 +18,7 @@ export function DiscoveryDetail() {
   const id = typeof params.id === "string" ? params.id : null;
   const { data, loading, error } = useDiscovery(id);
   const imageUrl = useObjectUrl(data?.image);
+  const extraUrls = useObjectUrls(data?.photos);
   const tc = useMessages("collection");
   const t = tc.detail;
 
@@ -47,9 +48,31 @@ export function DiscoveryDetail() {
         <ArrowLeft className="h-4 w-4" /> {t.backLink}
       </Link>
       <JournalEditor discovery={data} />
-      <ResultsView analysis={data.analysis} meta={data.meta} imageSrc={imageUrl} context={data.context} />
+      <ResultsView
+        analysis={data.analysis}
+        meta={data.meta}
+        imageSrc={imageUrl}
+        photoUrls={extraUrls.length > 1 ? extraUrls : undefined}
+        context={data.context}
+      />
     </div>
   );
+}
+
+/** Object URLs for a discovery's photos (revoked when they change or on unmount). */
+function useObjectUrls(blobs: Blob[] | undefined): string[] {
+  const [urls, setUrls] = useState<string[]>([]);
+  useEffect(() => {
+    if (!blobs || blobs.length === 0) return;
+    const created = blobs.map((b) => URL.createObjectURL(b));
+    let active = true;
+    queueMicrotask(() => active && setUrls(created));
+    return () => {
+      active = false;
+      created.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [blobs]);
+  return blobs && blobs.length > 0 ? urls : [];
 }
 
 function JournalEditor({ discovery }: { discovery: Discovery }) {
