@@ -9,10 +9,17 @@ export type Effort = (typeof EFFORTS)[number];
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
 
+/** Vercel AI Gateway's Anthropic-compatible endpoint (authenticated with the project's OIDC token). */
+export const VERCEL_AI_GATEWAY_URL = "https://ai-gateway.vercel.sh";
+
 export function getAiConfig() {
   const effortEnv = process.env.DR_ROCK_EFFORT as Effort | undefined;
+  // "vercel": call Claude through Vercel AI Gateway with the deployment's own OIDC token (no API
+  // key needed on Vercel). Anything else uses ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL as usual.
+  const gateway = process.env.DR_ROCK_AI_GATEWAY?.trim().toLowerCase() === "vercel" ? ("vercel" as const) : ("anthropic" as const);
   return {
-    apiKeyConfigured: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
+    gateway,
+    apiKeyConfigured: gateway === "vercel" || Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
     model: process.env.DR_ROCK_MODEL?.trim() || DEFAULT_MODEL,
     effort: effortEnv && EFFORTS.includes(effortEnv) ? effortEnv : ("high" as Effort),
     // Per-attempt AI timeout and retries. Defaults suit hosts with long function limits (Vercel: 300 s).

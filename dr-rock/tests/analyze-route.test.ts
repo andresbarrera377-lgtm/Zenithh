@@ -18,6 +18,7 @@ let replyQueue: StubReply[] = [];
 let lastRequestBody: Record<string, unknown> | null = null;
 let requestBodies: Array<Record<string, unknown>> = [];
 let lastBetaHeader: string | undefined;
+let lastApiKey: string | undefined;
 let server: Server;
 
 function message(content: unknown[], stop_reason = "end_turn") {
@@ -41,6 +42,7 @@ beforeAll(async () => {
       lastRequestBody = raw ? JSON.parse(raw) : null;
       if (lastRequestBody) requestBodies.push(lastRequestBody);
       lastBetaHeader = req.headers["anthropic-beta"] as string | undefined;
+      lastApiKey = (req.headers["x-api-key"] as string | undefined) ?? (req.headers.authorization as string | undefined)?.replace(/^Bearer /, "");
       const reply = replyQueue.shift() ?? nextReply;
       res.writeHead(reply.status ?? 200, { "content-type": "application/json" });
       res.end(JSON.stringify(reply.body));
@@ -210,6 +212,29 @@ describe("POST /api/analyze", () => {
     const second = await post(again);
     expect(second.status).toBe(200);
     expect(second.body.ok && second.body.meta.reviewed).toBe(false);
+  });
+
+  it("calls Vercel AI Gateway with the deployment's OIDC token when configured", async () => {
+    process.env.DR_ROCK_AI_GATEWAY = "vercel";
+    process.env.DR_ROCK_AI_GATEWAY_URL = process.env.ANTHROPIC_BASE_URL;
+    // A JWT-shaped token that has not expired (the library checks the exp claim).
+    const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    const token = `${b64({ alg: "RS256", typ: "JWT" })}.${b64({ exp: Math.floor(Date.now() / 1000) + 3600, sub: "test" })}.sig`;
+    process.env.VERCEL_OIDC_TOKEN = token;
+    delete process.env.ANTHROPIC_API_KEY;
+    try {
+      nextReply = { body: message([{ type: "text", text: JSON.stringify(toWire(EXAMPLE_ANALYSIS)) }]) };
+      const form = new FormData();
+      form.append("image", await photo(), "rock.jpg");
+      const { status, body } = await post(form);
+      expect(body).toMatchObject({ ok: true });
+      expect(status).toBe(200);
+      expect(lastApiKey).toBe(token);
+    } finally {
+      delete process.env.DR_ROCK_AI_GATEWAY;
+      delete process.env.DR_ROCK_AI_GATEWAY_URL;
+      delete process.env.VERCEL_OIDC_TOKEN;
+    }
   });
 
   it("makes a single call when the review pass is turned off", async () => {

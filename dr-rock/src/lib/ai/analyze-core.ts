@@ -10,7 +10,8 @@ import type { UploadRole } from "../analysis/photos";
 import type { AnalysisErrorCode, AnalyzeResponse, FieldContext, RockAnalysis } from "../analysis/schema";
 import { fromWire, parseWireReport } from "../analysis/wire";
 import type { AllowedMediaType } from "../server/image-validation";
-import { getAiConfig } from "./ai-config";
+import { getVercelOidcToken } from "@vercel/oidc";
+import { getAiConfig, VERCEL_AI_GATEWAY_URL } from "./ai-config";
 import { ANALYSIS_SYSTEM_PROMPT, buildReviewPrompt, buildUserPrompt, photoLabel } from "./prompt";
 
 export class AnalysisError extends Error {
@@ -30,10 +31,18 @@ export class AnalysisError extends Error {
 
 let client: Anthropic | null = null;
 
-function getClient(): Anthropic {
+async function getClient(): Promise<Anthropic> {
+  const { timeoutMs, maxRetries, gateway } = getAiConfig();
+  if (gateway === "vercel") {
+    // Vercel rotates the OIDC token (less than an hour), so read it for every request; on Vercel it
+    // comes from the request's x-vercel-oidc-token header. It never reaches the browser.
+    const token = await getVercelOidcToken().catch(() => "");
+    if (!token) {
+      throw new AnalysisError("AI_NOT_CONFIGURED", 503, "The AI gateway token is not available on this server. No identification was generated.");
+    }
+    return new Anthropic({ apiKey: token, baseURL: process.env.DR_ROCK_AI_GATEWAY_URL || VERCEL_AI_GATEWAY_URL, maxRetries, timeout: timeoutMs });
+  }
   // The SDK reads ANTHROPIC_API_KEY from the server environment. The key never reaches the browser.
-  // Defaults (140 s, one retry) stay within the route's 300 s limit; see config.ts for shorter hosts.
-  const { timeoutMs, maxRetries } = getAiConfig();
   client ??= new Anthropic({ maxRetries, timeout: timeoutMs });
   return client;
 }
@@ -81,8 +90,9 @@ async function callModel(content: UserContent, signal: AbortSignal | undefined):
   const config = getAiConfig();
   let response: ModelReply;
   try {
+    const anthropic = await getClient();
     response = config.serverFallbacks
-      ? await getClient().beta.messages.create(
+      ? await anthropic.beta.messages.create(
           {
             model: config.model,
             max_tokens: 16000,
@@ -97,8 +107,8 @@ async function callModel(content: UserContent, signal: AbortSignal | undefined):
           },
           { signal },
         )
-      : // Gateway-compatible path (e.g. Netlify AI Gateway): no beta headers.
-        await getClient().messages.create(
+      : // Gateway-compatible path (Netlify or Vercel AI Gateway): no beta headers.
+        await anthropic.messages.create(
           {
             model: config.model,
             max_tokens: 16000,

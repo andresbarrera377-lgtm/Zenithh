@@ -21,9 +21,9 @@ export function isPhotoRole(value: unknown): value is UploadRole {
 
 /**
  * Upload budget. Claude reads images at up to 2576 px on the long edge, so photos are prepared at
- * that size. Netlify's request functions accept roughly 6 MB per request (binary bodies are
- * base64-encoded on the way in), so all photos together stay under MAX_TOTAL_PHOTO_BYTES and
- * each one under the per-image target the browser aims for.
+ * that size. Hosts cap a request body (Vercel: 4.5 MB; Netlify: ~6 MB once base64-encoded), so all
+ * photos together stay under MAX_TOTAL_PHOTO_BYTES (plus a little multipart overhead) and each one
+ * under the per-image target the browser aims for.
  */
-export const PHOTO_TARGET_BYTES = 1.35 * 1024 * 1024;
-export const MAX_TOTAL_PHOTO_BYTES = 4.3 * 1024 * 1024;
+export const PHOTO_TARGET_BYTES = 1.25 * 1024 * 1024;
+export const MAX_TOTAL_PHOTO_BYTES = 4 * 1024 * 1024;
